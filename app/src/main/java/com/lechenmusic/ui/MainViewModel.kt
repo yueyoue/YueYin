@@ -880,7 +880,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     return@launch
                 }
                 settings.saveTingToken(tingRepository.getAuthToken().removePrefix("Bearer "))
-                audiobookPlayerManager.updateAuth(serverUrl, tingRepository.getAuthToken().removePrefix("Bearer "))
+                audiobookPlayerManager.updateStreamAuth(serverUrl, tingRepository.getAuthToken().removePrefix("Bearer "))
 
                 tingRepository.getBooks().onSuccess { books ->
                     _audiobooks.value = books
@@ -925,7 +925,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 if (serverUrl.isNotBlank() && username.isNotBlank()) {
                     tingRepository.configure(serverUrl, username, password)
                     tingRepository.login()
-                    audiobookPlayerManager.updateAuth(serverUrl, tingRepository.getAuthToken().removePrefix("Bearer "))
+                    audiobookPlayerManager.updateStreamAuth(serverUrl, tingRepository.getAuthToken().removePrefix("Bearer "))
                 }
 
                 tingRepository.getChapters(bookId).onSuccess { chapters ->

@@ -1,6 +1,6 @@
 {
-  "versionCode": 2,
-  "versionName": "v1.0.2",
+  "versionCode": 3,
+  "versionName": "v1.0.3",
   "apkUrl": "https://yy.tthsdd.top/musicapp/update/app-release.apk",
-  "updateLog": "1. 修复有声书播放器返回后停止播放的问题\n2. 有声书播放页优化：移除随机/循环按钮，统一前进后退按钮样式\n3. 新增有声书迷你播放器（返回后可继续控制播放）\n4. 有声书图片和数据缓存优化，减少卡顿\n5. UI界面整体优化"
+  "updateLog": "1. 修复有声书播放器返回后播放停止的严重问题\n2. 修复返回后播放/暂停按钮失效的问题\n3. 修复重新进入播放页无法继续播放的问题\n4. 优化有声书认证机制，避免播放中重建播放器"
 }

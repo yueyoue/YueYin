@@ -204,12 +204,30 @@ class AudiobookPlayerManager(private val context: Context) {
             }
     }
 
+    private var currentAuthUrl: String = ""
+    private var currentAuthToken: String = ""
+
     fun updateAuth(baseUrl: String, token: String) {
+        // Only rebuild player if auth actually changed
+        if (baseUrl == currentAuthUrl && token == currentAuthToken) return
+        currentAuthUrl = baseUrl
+        currentAuthToken = token
         streamBaseUrl = baseUrl
         authToken = token
         // Rebuild player with new auth
         player?.release()
         buildPlayer()
+    }
+
+    /**
+     * Update stream URL and token without rebuilding the player.
+     * Safe to call while audio is playing.
+     */
+    fun updateStreamAuth(baseUrl: String, token: String) {
+        streamBaseUrl = baseUrl
+        authToken = token
+        currentAuthUrl = baseUrl
+        currentAuthToken = token
     }
 
     fun playBook(
