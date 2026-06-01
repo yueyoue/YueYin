@@ -146,8 +146,9 @@ fun LeChenMusicApp(viewModel: MainViewModel) {
     val password by viewModel.password.collectAsState()
     val tingEnabled by viewModel.tingEnabled.collectAsState()
     val audiobookPlayerManager = viewModel.audiobookPlayerManager
-    val isAudiobookPlaying by audiobookPlayerManager.isPlaying.collectAsState()
     val audiobookBookId by audiobookPlayerManager.currentBookId.collectAsState()
+    val isMusicPlaying by viewModel.playerManager.isPlaying.collectAsState()
+    val isAudiobookPlaying by audiobookPlayerManager.isPlaying.collectAsState()
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
@@ -163,6 +164,7 @@ fun LeChenMusicApp(viewModel: MainViewModel) {
     if (tingEnabled) {
         tabs.add(BottomTab(Screen.AudiobookList.route, "小说", Icons.Default.MenuBook))
     }
+
 
     val showBottomBar = currentRoute in tabs.map { it.route }
     val isOnAudiobookPlayer = currentRoute?.startsWith("audiobook_player") == true
@@ -181,12 +183,15 @@ fun LeChenMusicApp(viewModel: MainViewModel) {
             Scaffold(
                 bottomBar = {
                     AnimatedVisibility(
-                        visible = showBottomBar || (currentSong != null && currentRoute != Screen.Player.route) || (isAudiobookPlaying && !isOnAudiobookPlayer),
+                        visible = showBottomBar
+                                || (currentSong != null && currentRoute != Screen.Player.route && (isMusicPlaying || audiobookBookId.isBlank()))
+                                || (audiobookBookId.isNotBlank() && !isOnAudiobookPlayer && !isMusicPlaying),
                         enter = slideInVertically(initialOffsetY = { it }),
                         exit = slideOutVertically(targetOffsetY = { it })
                     ) {
                         Column {
-                            if (currentSong != null && currentRoute != Screen.Player.route) {
+                            // 音乐播放器：正在播放音乐 或 没有加载有声书时显示
+                            if (currentSong != null && currentRoute != Screen.Player.route && (isMusicPlaying || audiobookBookId.isBlank())) {
                                 MiniPlayer(
                                     playerManager = viewModel.playerManager,
                                     serverUrl = serverUrl,
@@ -195,7 +200,8 @@ fun LeChenMusicApp(viewModel: MainViewModel) {
                                     onClick = { navController.navigate(Screen.Player.route) }
                                 )
                             }
-                            if (isAudiobookPlaying && !isOnAudiobookPlayer && audiobookBookId.isNotBlank()) {
+                            // 有声书播放器：已加载有声书 且 音乐未在播放 且 不在有声书播放页时显示
+                            if (audiobookBookId.isNotBlank() && !isOnAudiobookPlayer && !isMusicPlaying) {
                                 AudiobookMiniPlayer(
                                     audiobookPlayerManager = audiobookPlayerManager,
                                     onClick = { navController.navigate(Screen.AudiobookPlayer.createRoute(audiobookBookId)) }

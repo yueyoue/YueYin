@@ -40,7 +40,7 @@ class LeChenApp : Application(), ImageLoaderFactory {
             .diskCache {
                 DiskCache.Builder()
                     .directory(cacheDir.resolve("image_cache"))
-                    .maxSizePercent(0.05)
+                    .maxSizeBytes(256L * 1024 * 1024) // 256MB
                     .build()
             }
             .crossfade(true)

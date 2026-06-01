@@ -34,7 +34,7 @@ data class UpdateInfo(
 object UpdateChecker {
 
     private const val TAG = "UpdateChecker"
-    private const val GITHUB_API_URL = "https://api.github.com/repos/yueyoue/LeChenMusic/releases/latest"
+    private const val GITHUB_API_URL = "https://api.github.com/repos/yueyoue/YueYin/releases/latest"
     private const val CUSTOM_SERVER_URL = "https://yy.tthsdd.top/musicapp/update/version.json"
 
     // 普通请求用的 client（检查版本信息）
