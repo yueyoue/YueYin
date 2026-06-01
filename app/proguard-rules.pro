@@ -46,6 +46,7 @@
 
 # Media3
 -keep class androidx.media3.** { *; }
+-keep class androidx.media3.datasource.okhttp.** { *; }
 
 # Coil
 -keep class coil.** { *; }

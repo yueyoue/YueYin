@@ -19,7 +19,9 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.common.PlaybackException
+import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import com.lechenmusic.MainActivity
 import com.lechenmusic.R
 import com.lechenmusic.data.model.TingChapter
@@ -30,6 +32,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import okhttp3.OkHttpClient
 
 class AudiobookPlayerManager(private val context: Context) {
     private var player: ExoPlayer? = null
@@ -101,7 +104,70 @@ class AudiobookPlayerManager(private val context: Context) {
         streamBaseUrl = baseUrl
         authToken = token
 
+        buildPlayer()
+
+        createNotificationChannel()
+
+        mediaSessionCompat = MediaSessionCompat(context, "LeChenAudiobookSession").apply {
+            isActive = true
+            setCallback(object : MediaSessionCompat.Callback() {
+                override fun onPlay() { togglePlayPause() }
+                override fun onPause() { togglePlayPause() }
+                override fun onSkipToNext() { skipNext() }
+                override fun onSkipToPrevious() { skipPrevious() }
+                override fun onStop() { forcePause() }
+            })
+        }
+
+        alarmReceiver = object : BroadcastReceiver() {
+            override fun onReceive(ctx: Context?, intent: Intent?) {
+                when (intent?.action) {
+                    ACTION_PREV -> skipPrevious()
+                    ACTION_NEXT -> skipNext()
+                    ACTION_PLAY_PAUSE -> togglePlayPause()
+                    ACTION_FORWARD -> forward30s()
+                    ACTION_REWIND -> rewind30s()
+                }
+            }
+        }
+        val filter = IntentFilter().apply {
+            addAction(ACTION_PREV)
+            addAction(ACTION_NEXT)
+            addAction(ACTION_PLAY_PAUSE)
+            addAction(ACTION_FORWARD)
+            addAction(ACTION_REWIND)
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            context.registerReceiver(alarmReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            context.registerReceiver(alarmReceiver, filter)
+        }
+
+        // Progress update loop
+        scope.launch {
+            while (true) {
+                kotlinx.coroutines.delay(1000)
+                updateProgress()
+            }
+        }
+    }
+
+    private fun buildPlayer() {
+        // Create OkHttp client with auth header interceptor
+        val okHttpClient = OkHttpClient.Builder()
+            .addInterceptor { chain ->
+                val request = chain.request().newBuilder()
+                    .addHeader("Authorization", "Bearer $authToken")
+                    .build()
+                chain.proceed(request)
+            }
+            .build()
+
+        val dataSourceFactory = OkHttpDataSource.Factory(okHttpClient)
+        val mediaSourceFactory = DefaultMediaSourceFactory(dataSourceFactory)
+
         player = ExoPlayer.Builder(context)
+            .setMediaSourceFactory(mediaSourceFactory)
             .setAudioAttributes(
                 AudioAttributes.Builder()
                     .setContentType(C.AUDIO_CONTENT_TYPE_SPEECH)
@@ -135,8 +201,7 @@ class AudiobookPlayerManager(private val context: Context) {
                     }
                 })
             }
-
-        createNotificationChannel()
+    }
 
         mediaSessionCompat = MediaSessionCompat(context, "LeChenAudiobookSession").apply {
             isActive = true
@@ -185,6 +250,9 @@ class AudiobookPlayerManager(private val context: Context) {
     fun updateAuth(baseUrl: String, token: String) {
         streamBaseUrl = baseUrl
         authToken = token
+        // Rebuild player with new auth
+        player?.release()
+        buildPlayer()
     }
 
     fun playBook(

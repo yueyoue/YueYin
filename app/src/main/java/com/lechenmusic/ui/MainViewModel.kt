@@ -296,11 +296,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
 
-        // Load audiobooks if enabled
+        // Load audiobooks if enabled (only on first enable, not every recomposition)
         viewModelScope.launch {
+            var wasEnabled = false
             settings.tingEnabled.collect { enabled ->
-                if (enabled) {
+                if (enabled && !wasEnabled) {
+                    wasEnabled = true
                     loadAudiobooks()
+                } else if (!enabled) {
+                    wasEnabled = false
                 }
             }
         }
@@ -914,6 +918,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun loadAndPlayAudiobook(bookId: String) {
         viewModelScope.launch {
             try {
+                // Ensure repo is configured
+                val serverUrl = settings.tingServerUrl.first()
+                val username = settings.tingUsername.first()
+                val password = settings.tingPassword.first()
+                if (serverUrl.isNotBlank() && username.isNotBlank()) {
+                    tingRepository.configure(serverUrl, username, password)
+                    tingRepository.login()
+                    audiobookPlayerManager.updateAuth(serverUrl, tingRepository.getAuthToken().removePrefix("Bearer "))
+                }
+
                 tingRepository.getChapters(bookId).onSuccess { chapters ->
                     if (chapters.isEmpty()) {
                         _toastMessage.value = "该书暂无章节"

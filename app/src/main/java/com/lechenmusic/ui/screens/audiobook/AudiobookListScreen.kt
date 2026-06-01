@@ -25,7 +25,6 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.lechenmusic.data.model.TingBook
 import com.lechenmusic.data.model.TingProgress
-import com.lechenmusic.data.api.TingReaderApiClient
 import com.lechenmusic.ui.MainViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -46,9 +45,13 @@ fun AudiobookListScreen(
 
     var selectedFilter by remember { mutableStateOf("全部") }
     var showSearch by remember { mutableStateOf(false) }
+    var hasLoaded by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
-        viewModel.loadAudiobooks()
+        if (!hasLoaded) {
+            hasLoaded = true
+            viewModel.loadAudiobooks()
+        }
     }
 
     val displayBooks = if (showSearch && searchQuery.isNotBlank()) {
@@ -196,9 +199,8 @@ private fun AudiobookGridItem(
         Box {
             val coverUrl = book.coverUrl
             if (coverUrl != null) {
-                val proxyUrl = TingReaderApiClient.getCoverProxyUrl(serverUrl, coverUrl, token)
                 AsyncImage(
-                    model = proxyUrl,
+                    model = coverUrl,
                     contentDescription = book.title,
                     modifier = Modifier
                         .fillMaxWidth()

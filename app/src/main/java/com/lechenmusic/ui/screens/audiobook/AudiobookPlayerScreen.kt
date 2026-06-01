@@ -26,7 +26,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.lechenmusic.data.model.TingChapter
-import com.lechenmusic.data.api.TingReaderApiClient
 import com.lechenmusic.player.AudiobookPlayerManager
 import com.lechenmusic.player.RepeatMode
 import com.lechenmusic.ui.MainViewModel
@@ -60,7 +59,7 @@ fun AudiobookPlayerScreen(
 
     // Load book if not already loaded
     LaunchedEffect(bookId) {
-        if (audiobookPlayer.currentBookId.value != bookId) {
+        if (audiobookPlayer.currentBookId.value != bookId || audiobookPlayer.chapters.value.isEmpty()) {
             viewModel.loadAndPlayAudiobook(bookId)
         }
     }
@@ -104,9 +103,8 @@ fun AudiobookPlayerScreen(
             ) {
                 val coverUrl = bookCoverUrl
                 if (coverUrl != null) {
-                    val proxyUrl = TingReaderApiClient.getCoverProxyUrl(tingServerUrl, coverUrl, tingToken)
                     AsyncImage(
-                        model = proxyUrl,
+                        model = coverUrl,
                         contentDescription = bookTitle,
                         modifier = Modifier
                             .size(260.dp)
