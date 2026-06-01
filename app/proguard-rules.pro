@@ -54,3 +54,6 @@
 -keep class com.lechenmusic.data.api.SubsonicApi { *; }
 -keep class com.lechenmusic.data.api.ApiClient { *; }
 -keep class com.lechenmusic.data.api.SafeJsonConverterFactory { *; }
+# Keep Ting Reader API interface
+-keep class com.lechenmusic.data.api.TingReaderApi { *; }
+-keep class com.lechenmusic.data.api.TingReaderApiClient { *; }

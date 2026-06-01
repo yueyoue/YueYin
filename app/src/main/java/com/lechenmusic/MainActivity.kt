@@ -38,6 +38,8 @@ import com.lechenmusic.ui.screens.recent.RecentPlayedScreen
 import com.lechenmusic.ui.screens.search.SearchScreen
 import com.lechenmusic.ui.screens.settings.SettingsScreen
 import com.lechenmusic.ui.screens.songs.AllSongsScreen
+import com.lechenmusic.ui.screens.audiobook.AudiobookListScreen
+import com.lechenmusic.ui.screens.audiobook.AudiobookPlayerScreen
 import com.lechenmusic.ui.theme.LeChenMusicTheme
 import com.lechenmusic.update.UpdateInfo
 
@@ -141,19 +143,22 @@ fun LeChenMusicApp(viewModel: MainViewModel) {
     val serverUrl by viewModel.serverUrl.collectAsState()
     val username by viewModel.username.collectAsState()
     val password by viewModel.password.collectAsState()
+    val tingEnabled by viewModel.tingEnabled.collectAsState()
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
     data class BottomTab(val route: String, val label: String, val icon: ImageVector)
-    val tabs = listOf(
+    val tabs = mutableListOf(
         BottomTab(Screen.Home.route, "首页", Icons.Default.Home),
         BottomTab(Screen.Favorites.route, "收藏", Icons.Default.Favorite),
         BottomTab(Screen.Search.route, "搜索", Icons.Default.Search),
         BottomTab(Screen.Artists.route, "歌手", Icons.Default.Person),
-        BottomTab(Screen.Albums.route, "专辑", Icons.Default.Album),
         BottomTab(Screen.AllSongs.route, "歌曲", Icons.Default.MusicNote)
     )
+    if (tingEnabled) {
+        tabs.add(BottomTab(Screen.AudiobookList.route, "小说", Icons.Default.MenuBook))
+    }
 
     val showBottomBar = currentRoute in tabs.map { it.route }
 
@@ -330,6 +335,21 @@ fun LeChenMusicApp(viewModel: MainViewModel) {
                     }
                     composable(Screen.Radio.route) {
                         RadioScreen(
+                            viewModel = viewModel,
+                            onBack = { navController.popBackStack() }
+                        )
+                    }
+                    composable(Screen.AudiobookList.route) {
+                        AudiobookListScreen(
+                            viewModel = viewModel,
+                            onBookClick = { bookId -> navController.navigate(Screen.AudiobookPlayer.createRoute(bookId)) },
+                            onBack = { navController.popBackStack() }
+                        )
+                    }
+                    composable(Screen.AudiobookPlayer.route) { backStackEntry ->
+                        val bookId = backStackEntry.arguments?.getString("bookId") ?: ""
+                        AudiobookPlayerScreen(
+                            bookId = bookId,
                             viewModel = viewModel,
                             onBack = { navController.popBackStack() }
                         )

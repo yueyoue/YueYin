@@ -26,6 +26,13 @@ class SettingsRepository(private val context: Context) {
         val CACHED_DAILY_SONGS_JSON = stringPreferencesKey("cached_daily_songs_json")
         val CACHED_DAILY_SONGS_DATE = stringPreferencesKey("cached_daily_songs_date")
         val SKIPPED_VERSION_CODE = intPreferencesKey("skipped_version_code")
+        // Ting Reader (Audiobook) settings
+        val TING_ENABLED = stringPreferencesKey("ting_enabled")
+        val TING_SERVER_URL = stringPreferencesKey("ting_server_url")
+        val TING_USERNAME = stringPreferencesKey("ting_username")
+        val TING_PASSWORD = stringPreferencesKey("ting_password")
+        val TING_TOKEN = stringPreferencesKey("ting_token")
+        val CACHED_AUDIOBOOK_PROGRESS_JSON = stringPreferencesKey("cached_audiobook_progress_json")
     }
 
     val serverUrl: Flow<String> = context.dataStore.data.map { it[SERVER_URL] ?: "" }
@@ -34,6 +41,40 @@ class SettingsRepository(private val context: Context) {
     val themeMode: Flow<String> = context.dataStore.data.map { it[THEME_MODE] ?: "dark" }
     val cacheSize: Flow<Int> = context.dataStore.data.map { it[CACHE_SIZE] ?: 4 }
     val recentPlayIds: Flow<String> = context.dataStore.data.map { it[RECENT_PLAY_IDS] ?: "" }
+
+    // Ting Reader settings
+    val tingEnabled: Flow<Boolean> = context.dataStore.data.map { (it[TING_ENABLED] ?: "false") == "true" }
+    val tingServerUrl: Flow<String> = context.dataStore.data.map { it[TING_SERVER_URL] ?: "" }
+    val tingUsername: Flow<String> = context.dataStore.data.map { it[TING_USERNAME] ?: "" }
+    val tingPassword: Flow<String> = context.dataStore.data.map { it[TING_PASSWORD] ?: "" }
+    val tingToken: Flow<String> = context.dataStore.data.map { it[TING_TOKEN] ?: "" }
+
+    suspend fun saveTingLogin(serverUrl: String, username: String, password: String) {
+        context.dataStore.edit { prefs ->
+            prefs[TING_ENABLED] = "true"
+            prefs[TING_SERVER_URL] = serverUrl
+            prefs[TING_USERNAME] = username
+            prefs[TING_PASSWORD] = password
+        }
+    }
+
+    suspend fun saveTingToken(token: String) {
+        context.dataStore.edit { it[TING_TOKEN] = token }
+    }
+
+    suspend fun clearTingLogin() {
+        context.dataStore.edit { prefs ->
+            prefs[TING_ENABLED] = "false"
+            prefs.remove(TING_SERVER_URL)
+            prefs.remove(TING_USERNAME)
+            prefs.remove(TING_PASSWORD)
+            prefs.remove(TING_TOKEN)
+        }
+    }
+
+    suspend fun setTingEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[TING_ENABLED] = if (enabled) "true" else "false" }
+    }
 
     suspend fun saveLogin(serverUrl: String, username: String, password: String) {
         context.dataStore.edit { prefs ->
@@ -102,5 +143,12 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setSkippedVersionCode(versionCode: Int) {
         context.dataStore.edit { it[SKIPPED_VERSION_CODE] = versionCode }
+    }
+
+    // Cached audiobook progress for offline resume
+    val cachedAudiobookProgressJson: Flow<String> = context.dataStore.data.map { it[CACHED_AUDIOBOOK_PROGRESS_JSON] ?: "{}" }
+
+    suspend fun saveCachedAudiobookProgressJson(json: String) {
+        context.dataStore.edit { it[CACHED_AUDIOBOOK_PROGRESS_JSON] = json }
     }
 }

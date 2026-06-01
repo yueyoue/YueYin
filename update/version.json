@@ -1,6 +1,6 @@
 {
-  "versionCode": 27,
-  "versionName": "1.2.7",
+  "versionCode": 1,
+  "versionName": "v1.0.1",
   "apkUrl": "https://yy.tthsdd.top/musicapp/update/app-release.apk",
-  "updateLog": "1. 测试自动更新"
+  "updateLog": "1. 新增有声书功能（Ting Reader）\n2. 设置页添加有声书开关\n3. 首页新增小说标签\n4. 有声书播放器支持前进/后退30秒\n5. 睡眠定时功能\n6. 记忆播放功能\n7. 息屏播放控制"
 }

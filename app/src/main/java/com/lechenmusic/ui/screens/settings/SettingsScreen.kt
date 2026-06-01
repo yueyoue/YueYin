@@ -43,6 +43,11 @@ fun SettingsScreen(
     val isCheckingUpdate by viewModel.isCheckingUpdate.collectAsState()
     val toastMessage by viewModel.toastMessage.collectAsState()
     var userTriggeredCheck by remember { mutableStateOf(false) }
+    // Audiobook settings
+    val tingEnabled by viewModel.tingEnabled.collectAsState()
+    val tingServerUrl by viewModel.tingServerUrl.collectAsState()
+    var showTingLoginDialog by remember { mutableStateOf(false) }
+    var showTingDisableDialog by remember { mutableStateOf(false) }
 
     // Show toast messages (including "already latest")
     LaunchedEffect(toastMessage) {
@@ -97,6 +102,37 @@ fun SettingsScreen(
             Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp), shape = RoundedCornerShape(14.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                 Column {
                     SettingsToggleItem(icon = Icons.Default.Settings, iconBg = Color(0xFFA55EEA).copy(alpha = 0.15f), label = "深色模式", checked = themeMode == "dark", onCheckedChange = { viewModel.setThemeMode(if (it) "dark" else "light") })
+                }
+            }
+        }
+
+        item {
+            SectionTitle("有声书")
+            Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp), shape = RoundedCornerShape(14.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                Column {
+                    SettingsToggleItem(
+                        icon = Icons.Default.MenuBook,
+                        iconBg = Color(0xFFFF6B81).copy(alpha = 0.15f),
+                        label = "开启有声书",
+                        checked = tingEnabled,
+                        onCheckedChange = { enabled ->
+                            if (enabled) {
+                                showTingLoginDialog = true
+                            } else {
+                                showTingDisableDialog = true
+                            }
+                        }
+                    )
+                    if (tingEnabled) {
+                        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                        SettingsClickItem(
+                            icon = Icons.Default.Link,
+                            iconBg = Color(0xFF1E90FF).copy(alpha = 0.15f),
+                            label = "有声书服务器",
+                            value = tingServerUrl,
+                            onClick = { showTingLoginDialog = true }
+                        )
+                    }
                 }
             }
         }
@@ -255,6 +291,72 @@ fun SettingsScreen(
         AlertDialog(onDismissRequest = { showLogoutDialog = false }, title = { Text("切换服务器") }, text = { Text("确定要退出当前服务器吗？退出后需要重新输入服务器地址登录。") }, confirmButton = {
             TextButton(onClick = { viewModel.logout(); showLogoutDialog = false; onLogout() }) { Text("确定", color = MaterialTheme.colorScheme.primary) }
         }, dismissButton = { TextButton(onClick = { showLogoutDialog = false }) { Text("取消") } })
+    }
+
+    // Ting Reader Login Dialog
+    if (showTingLoginDialog) {
+        var tingUrl by remember { mutableStateOf(tingServerUrl.ifBlank { "http://j.tthsdd.top:3001/" }) }
+        var tingUser by remember { mutableStateOf("") }
+        var tingPass by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { showTingLoginDialog = false },
+            title = { Text("有声书服务器设置") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("请输入 Ting Reader 服务器信息", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    OutlinedTextField(
+                        value = tingUrl,
+                        onValueChange = { tingUrl = it },
+                        label = { Text("服务器地址") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = tingUser,
+                        onValueChange = { tingUser = it },
+                        label = { Text("用户名") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = tingPass,
+                        onValueChange = { tingPass = it },
+                        label = { Text("密码") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    if (tingUrl.isNotBlank() && tingUser.isNotBlank() && tingPass.isNotBlank()) {
+                        viewModel.enableAudiobooks(tingUrl, tingUser, tingPass)
+                        showTingLoginDialog = false
+                    }
+                }) { Text("连接", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showTingLoginDialog = false }) { Text("取消") }
+            }
+        )
+    }
+
+    // Ting Reader Disable Dialog
+    if (showTingDisableDialog) {
+        AlertDialog(
+            onDismissRequest = { showTingDisableDialog = false },
+            title = { Text("关闭有声书") },
+            text = { Text("确定要关闭有声书功能吗？关闭后首页将不再显示小说标签。") },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.disableAudiobooks()
+                    showTingDisableDialog = false
+                }) { Text("确定", color = Color.Red) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showTingDisableDialog = false }) { Text("取消") }
+            }
+        )
     }
 }
 

@@ -23,6 +23,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val repository: MusicRepository = app.repository
     private val settings: SettingsRepository = app.settingsRepository
     val playerManager: MusicPlayerManager = app.playerManager
+    val tingRepository = app.tingRepository
+    val audiobookPlayerManager = app.audiobookPlayerManager
 
     // Theme
     val themeMode: StateFlow<String> = settings.themeMode
@@ -265,6 +267,41 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             while (true) {
                 kotlinx.coroutines.delay(500)
                 playerManager.updateProgress()
+            }
+        }
+
+        // Setup audiobook player progress saving
+        audiobookPlayerManager.onProgressUpdate = { bookId, chapterId, position, duration ->
+            val now = System.currentTimeMillis()
+            if (now - lastProgressSaveTime > 5000) { // Save every 5 seconds
+                lastProgressSaveTime = now
+                viewModelScope.launch {
+                    try {
+                        tingRepository.saveProgress(bookId, chapterId, position.toDouble() / 1000.0, duration.toDouble() / 1000.0)
+                    } catch (_: Exception) { }
+                }
+            }
+        }
+
+        audiobookPlayerManager.onChapterAutoAdvanced = { chapter ->
+            viewModelScope.launch {
+                try {
+                    tingRepository.saveProgress(
+                        audiobookPlayerManager.currentBookId.value,
+                        chapter.id,
+                        0.0,
+                        chapter.duration
+                    )
+                } catch (_: Exception) { }
+            }
+        }
+
+        // Load audiobooks if enabled
+        viewModelScope.launch {
+            settings.tingEnabled.collect { enabled ->
+                if (enabled) {
+                    loadAudiobooks()
+                }
             }
         }
     }
@@ -750,6 +787,184 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }.onFailure {
                 _toastMessage.value = "修改失败: ${it.message}"
             }
+        }
+    }
+
+    // ============ Audiobook (Ting Reader) ============
+
+    // Ting Reader settings
+    val tingEnabled: StateFlow<Boolean> = settings.tingEnabled
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+    val tingServerUrl: StateFlow<String> = settings.tingServerUrl
+        .stateIn(viewModelScope, SharingStarted.Eagerly, "")
+    val tingToken: StateFlow<String> = settings.tingToken
+        .stateIn(viewModelScope, SharingStarted.Eagerly, "")
+
+    // Audiobook data
+    private val _audiobooks = MutableStateFlow<List<TingBook>>(emptyList())
+    val audiobooks: StateFlow<List<TingBook>> = _audiobooks.asStateFlow()
+
+    private val _audiobookProgress = MutableStateFlow<Map<String, TingProgress>>(emptyMap())
+    val audiobookProgress: StateFlow<Map<String, TingProgress>> = _audiobookProgress.asStateFlow()
+
+    private val _audiobooksLoading = MutableStateFlow(false)
+    val audiobooksLoading: StateFlow<Boolean> = _audiobooksLoading.asStateFlow()
+
+    private val _audiobookSearchQuery = MutableStateFlow("")
+    val audiobookSearchQuery: StateFlow<String> = _audiobookSearchQuery.asStateFlow()
+
+    private val _audiobookSearchResults = MutableStateFlow<List<TingBook>>(emptyList())
+    val audiobookSearchResults: StateFlow<List<TingBook>> = _audiobookSearchResults.asStateFlow()
+
+    // Progress save throttle
+    private var lastProgressSaveTime = 0L
+
+    fun enableAudiobooks(serverUrl: String, username: String, password: String) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                tingRepository.configure(serverUrl, username, password)
+                val pingResult = tingRepository.ping()
+                if (pingResult.isFailure) {
+                    _toastMessage.value = "无法连接到有声书服务器: ${pingResult.exceptionOrNull()?.message}"
+                    _isLoading.value = false
+                    return@launch
+                }
+                val loginResult = tingRepository.login()
+                if (loginResult.isFailure) {
+                    _toastMessage.value = "有声书服务器登录失败: ${loginResult.exceptionOrNull()?.message}"
+                    _isLoading.value = false
+                    return@launch
+                }
+                settings.saveTingLogin(serverUrl, username, password)
+                settings.saveTingToken(tingRepository.getAuthToken().removePrefix("Bearer "))
+                audiobookPlayerManager.updateAuth(serverUrl, tingRepository.getAuthToken().removePrefix("Bearer "))
+                _toastMessage.value = "有声书服务器连接成功 ✓"
+                loadAudiobooks()
+            } catch (e: Exception) {
+                _toastMessage.value = "连接失败: ${e.message}"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun disableAudiobooks() {
+        viewModelScope.launch {
+            settings.clearTingLogin()
+            _audiobooks.value = emptyList()
+            _audiobookProgress.value = emptyMap()
+            audiobookPlayerManager.release()
+            _toastMessage.value = "已关闭有声书功能"
+        }
+    }
+
+    fun loadAudiobooks() {
+        viewModelScope.launch {
+            // Check if we have saved credentials
+            val serverUrl = settings.tingServerUrl.first()
+            val username = settings.tingUsername.first()
+            val password = settings.tingPassword.first()
+            if (serverUrl.isBlank() || username.isBlank()) return@launch
+
+            _audiobooksLoading.value = true
+            try {
+                tingRepository.configure(serverUrl, username, password)
+                val loginResult = tingRepository.login()
+                if (loginResult.isFailure) {
+                    _audiobooksLoading.value = false
+                    return@launch
+                }
+                settings.saveTingToken(tingRepository.getAuthToken().removePrefix("Bearer "))
+                audiobookPlayerManager.updateAuth(serverUrl, tingRepository.getAuthToken().removePrefix("Bearer "))
+
+                tingRepository.getBooks().onSuccess { books ->
+                    _audiobooks.value = books
+                }
+
+                // Load progress for all books
+                tingRepository.getRecentProgress().onSuccess { progressList ->
+                    val progressMap = mutableMapOf<String, TingProgress>()
+                    for (p in progressList) {
+                        progressMap[p.bookId] = p
+                    }
+                    _audiobookProgress.value = progressMap
+                }
+            } catch (e: Exception) {
+                _toastMessage.value = "加载有声书失败: ${e.message}"
+            } finally {
+                _audiobooksLoading.value = false
+            }
+        }
+    }
+
+    fun searchAudiobooks(query: String) {
+        _audiobookSearchQuery.value = query
+        if (query.isBlank()) {
+            _audiobookSearchResults.value = emptyList()
+            return
+        }
+        viewModelScope.launch {
+            tingRepository.searchBooks(query).onSuccess {
+                _audiobookSearchResults.value = it
+            }
+        }
+    }
+
+    fun loadAndPlayAudiobook(bookId: String) {
+        viewModelScope.launch {
+            try {
+                tingRepository.getChapters(bookId).onSuccess { chapters ->
+                    if (chapters.isEmpty()) {
+                        _toastMessage.value = "该书暂无章节"
+                        return@launch
+                    }
+
+                    // Get saved progress
+                    var startChapterIndex = 0
+                    var startPositionMs = 0L
+                    tingRepository.getBookProgress(bookId).onSuccess { progress ->
+                        if (progress != null) {
+                            val savedChapterId = progress.chapterId
+                            val savedPosition = progress.position
+                            val idx = chapters.indexOfFirst { it.id == savedChapterId }
+                            if (idx >= 0) {
+                                startChapterIndex = idx
+                                startPositionMs = (savedPosition * 1000).toLong()
+                            }
+                        }
+                    }
+
+                    // Get book info
+                    tingRepository.getBook(bookId).onSuccess { book ->
+                        audiobookPlayerManager.playBook(
+                            bookId = bookId,
+                            bookTitle = book.title,
+                            bookAuthor = book.author,
+                            coverUrl = book.coverUrl,
+                            chapters = chapters,
+                            startChapterIndex = startChapterIndex,
+                            startPositionMs = startPositionMs
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                _toastMessage.value = "播放失败: ${e.message}"
+            }
+        }
+    }
+
+    fun setAudiobookTimer(minutes: Int) {
+        cancelTimerWithCountdown()
+        audiobookPlayerManager.forcePause()
+        // Use the same timer mechanism but for audiobook
+        _timerRemainingSeconds.value = minutes * 60L
+        countdownJob = viewModelScope.launch {
+            while (_timerRemainingSeconds.value > 0) {
+                kotlinx.coroutines.delay(1000)
+                _timerRemainingSeconds.value = (_timerRemainingSeconds.value - 1).coerceAtLeast(0)
+            }
+            audiobookPlayerManager.forcePause()
         }
     }
 }
