@@ -23,6 +23,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.lechenmusic.data.model.TingBook
 import com.lechenmusic.data.model.TingProgress
 import com.lechenmusic.ui.MainViewModel
@@ -200,7 +201,12 @@ private fun AudiobookGridItem(
             val coverUrl = book.coverUrl
             if (coverUrl != null) {
                 AsyncImage(
-                    model = coverUrl,
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(coverUrl)
+                        .crossfade(true)
+                        .memoryCacheKey("audiobook_cover_${book.id}")
+                        .diskCacheKey("audiobook_cover_${book.id}")
+                        .build(),
                     contentDescription = book.title,
                     modifier = Modifier
                         .fillMaxWidth()

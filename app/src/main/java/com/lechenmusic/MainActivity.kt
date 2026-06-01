@@ -23,6 +23,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.lechenmusic.ui.MainViewModel
 import com.lechenmusic.ui.components.MiniPlayer
+import com.lechenmusic.ui.components.AudiobookMiniPlayer
 import com.lechenmusic.ui.navi.Screen
 import com.lechenmusic.ui.screens.albums.AlbumDetailScreen
 import com.lechenmusic.ui.screens.albums.AlbumsScreen
@@ -144,6 +145,9 @@ fun LeChenMusicApp(viewModel: MainViewModel) {
     val username by viewModel.username.collectAsState()
     val password by viewModel.password.collectAsState()
     val tingEnabled by viewModel.tingEnabled.collectAsState()
+    val audiobookPlayerManager = viewModel.audiobookPlayerManager
+    val isAudiobookPlaying by audiobookPlayerManager.isPlaying.collectAsState()
+    val audiobookBookId by audiobookPlayerManager.currentBookId.collectAsState()
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
@@ -161,6 +165,7 @@ fun LeChenMusicApp(viewModel: MainViewModel) {
     }
 
     val showBottomBar = currentRoute in tabs.map { it.route }
+    val isOnAudiobookPlayer = currentRoute?.startsWith("audiobook_player") == true
 
     // 登录成功后自动检查更新（静默）
     LaunchedEffect(isLoggedIn) {
@@ -176,7 +181,7 @@ fun LeChenMusicApp(viewModel: MainViewModel) {
             Scaffold(
                 bottomBar = {
                     AnimatedVisibility(
-                        visible = showBottomBar || (currentSong != null && currentRoute != Screen.Player.route),
+                        visible = showBottomBar || (currentSong != null && currentRoute != Screen.Player.route) || (isAudiobookPlaying && !isOnAudiobookPlayer),
                         enter = slideInVertically(initialOffsetY = { it }),
                         exit = slideOutVertically(targetOffsetY = { it })
                     ) {
@@ -188,6 +193,12 @@ fun LeChenMusicApp(viewModel: MainViewModel) {
                                     username = username,
                                     password = password,
                                     onClick = { navController.navigate(Screen.Player.route) }
+                                )
+                            }
+                            if (isAudiobookPlaying && !isOnAudiobookPlayer && audiobookBookId.isNotBlank()) {
+                                AudiobookMiniPlayer(
+                                    audiobookPlayerManager = audiobookPlayerManager,
+                                    onClick = { navController.navigate(Screen.AudiobookPlayer.createRoute(audiobookBookId)) }
                                 )
                             }
                             if (showBottomBar) {

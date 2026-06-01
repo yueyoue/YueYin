@@ -344,6 +344,14 @@ class AudiobookPlayerManager(private val context: Context) {
         }
     }
 
+    fun setSpeed(speed: Float) {
+        player?.setPlaybackSpeed(speed)
+    }
+
+    fun isBookLoaded(): Boolean {
+        return _currentBookId.value.isNotBlank() && _chapters.value.isNotEmpty()
+    }
+
     private fun getStreamUrl(chapterId: String): String {
         var baseUrl = streamBaseUrl.trim()
         if (!baseUrl.startsWith("http://") && !baseUrl.startsWith("https://")) {

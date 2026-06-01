@@ -1,6 +1,5 @@
 package com.lechenmusic.ui.screens.audiobook
 
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -18,13 +17,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import androidx.compose.ui.platform.LocalContext
 import com.lechenmusic.data.model.TingChapter
 import com.lechenmusic.player.AudiobookPlayerManager
 import com.lechenmusic.ui.MainViewModel
@@ -46,8 +46,6 @@ fun AudiobookPlayerScreen(
     val progress by audiobookPlayer.progress.collectAsState()
     val currentPosition by audiobookPlayer.currentPosition.collectAsState()
     val duration by audiobookPlayer.duration.collectAsState()
-    val shuffleMode by audiobookPlayer.shuffleMode.collectAsState()
-    val repeatMode by audiobookPlayer.repeatMode.collectAsState()
     val bookTitle by audiobookPlayer.currentBookTitle.collectAsState()
     val bookAuthor by audiobookPlayer.currentBookAuthor.collectAsState()
     val bookCoverUrl by audiobookPlayer.currentBookCoverUrl.collectAsState()
@@ -55,6 +53,7 @@ fun AudiobookPlayerScreen(
     val timerRemainingSeconds by viewModel.timerRemainingSeconds.collectAsState()
     var showTimerDialog by remember { mutableStateOf(false) }
     var showChapterSheet by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
     // Load book if not already loaded
     LaunchedEffect(bookId) {
@@ -85,9 +84,9 @@ fun AudiobookPlayerScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.Default.KeyboardArrowDown, contentDescription = "返回")
+                    Icon(Icons.Default.KeyboardArrowDown, contentDescription = "返回", modifier = Modifier.size(28.dp))
                 }
-                Text("有声书播放", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("正在播放", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.SemiBold)
                 IconButton(onClick = { /* more options */ }) {
                     Icon(Icons.Default.MoreVert, contentDescription = "更多")
                 }
@@ -103,18 +102,23 @@ fun AudiobookPlayerScreen(
                 val coverUrl = bookCoverUrl
                 if (coverUrl != null) {
                     AsyncImage(
-                        model = coverUrl,
+                        model = ImageRequest.Builder(context)
+                            .data(coverUrl)
+                            .crossfade(true)
+                            .memoryCacheKey("audiobook_cover_$bookId")
+                            .diskCacheKey("audiobook_cover_$bookId")
+                            .build(),
                         contentDescription = bookTitle,
                         modifier = Modifier
-                            .size(260.dp)
-                            .clip(RoundedCornerShape(20.dp)),
+                            .size(280.dp)
+                            .clip(RoundedCornerShape(24.dp)),
                         contentScale = ContentScale.Crop
                     )
                 } else {
                     Box(
                         modifier = Modifier
-                            .size(260.dp)
-                            .clip(RoundedCornerShape(20.dp))
+                            .size(280.dp)
+                            .clip(RoundedCornerShape(24.dp))
                             .background(Brush.linearGradient(listOf(Color(0xFF667eea), Color(0xFF764ba2)))),
                         contentAlignment = Alignment.Center
                     ) {
@@ -128,7 +132,7 @@ fun AudiobookPlayerScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
             // Book & Chapter Info
             Column(
@@ -137,17 +141,19 @@ fun AudiobookPlayerScreen(
             ) {
                 Text(
                     bookTitle,
-                    fontSize = 20.sp,
+                    fontSize = 22.sp,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                Text(
-                    if (bookAuthor.isNotBlank() && bookAuthor != "Unknown") bookAuthor else "",
-                    fontSize = 13.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 4.dp)
-                )
+                if (bookAuthor.isNotBlank() && bookAuthor != "Unknown") {
+                    Text(
+                        bookAuthor,
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                }
                 // Chapter indicator
                 if (currentChapter != null) {
                     Surface(
@@ -179,7 +185,7 @@ fun AudiobookPlayerScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
             // Progress Bar
             Column(modifier = Modifier.padding(horizontal = 24.dp)) {
@@ -197,56 +203,43 @@ fun AudiobookPlayerScreen(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(formatTime(currentPosition), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(formatTime(duration), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("-${formatTime(duration - currentPosition)}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-            // Controls with 30s forward/backward
+            // Controls: Prev | Rewind30 | Play/Pause | Forward30 | Next
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
+                    .padding(horizontal = 20.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Shuffle
-                IconButton(onClick = { audiobookPlayer.toggleShuffle() }) {
-                    Icon(
-                        Icons.Default.Shuffle,
-                        contentDescription = "随机",
-                        tint = if (shuffleMode) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
                 // Previous chapter
-                IconButton(onClick = { audiobookPlayer.skipPrevious() }) {
-                    Icon(Icons.Default.SkipPrevious, contentDescription = "上一章", modifier = Modifier.size(30.dp))
+                IconButton(onClick = { audiobookPlayer.skipPrevious() }, modifier = Modifier.size(48.dp)) {
+                    Icon(Icons.Default.SkipPrevious, contentDescription = "上一章", modifier = Modifier.size(32.dp))
                 }
-                // Rewind 30s
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    IconButton(onClick = { audiobookPlayer.rewind30s() }) {
-                        Surface(
-                            modifier = Modifier.size(44.dp),
-                            shape = CircleShape,
-                            color = MaterialTheme.colorScheme.surfaceVariant
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    Icons.Default.Replay,
-                                    contentDescription = "后退30秒",
-                                    modifier = Modifier.size(22.dp)
-                                )
-                            }
+                // Rewind 30s - same style as forward
+                IconButton(onClick = { audiobookPlayer.rewind30s() }, modifier = Modifier.size(48.dp)) {
+                    Surface(
+                        modifier = Modifier.size(46.dp),
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.surfaceVariant
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                Icons.Default.Replay,
+                                contentDescription = "后退30秒",
+                                modifier = Modifier.size(24.dp)
+                            )
                         }
                     }
-                    Text("30s", fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                // Play/Pause
+                // Play/Pause - main button
                 Surface(
-                    modifier = Modifier.size(64.dp),
+                    modifier = Modifier.size(68.dp),
                     shape = CircleShape,
                     color = MaterialTheme.colorScheme.primary,
                     shadowElevation = 8.dp
@@ -256,61 +249,69 @@ fun AudiobookPlayerScreen(
                             if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                             contentDescription = if (isPlaying) "暂停" else "播放",
                             tint = Color.White,
-                            modifier = Modifier.size(32.dp)
+                            modifier = Modifier.size(34.dp)
                         )
                     }
                 }
                 // Forward 30s
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    IconButton(onClick = { audiobookPlayer.forward30s() }) {
-                        Surface(
-                            modifier = Modifier.size(44.dp),
-                            shape = CircleShape,
-                            color = MaterialTheme.colorScheme.surfaceVariant
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    Icons.Default.Forward,
-                                    contentDescription = "前进30秒",
-                                    modifier = Modifier.size(22.dp)
-                                )
-                            }
+                IconButton(onClick = { audiobookPlayer.forward30s() }, modifier = Modifier.size(48.dp)) {
+                    Surface(
+                        modifier = Modifier.size(46.dp),
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.surfaceVariant
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                Icons.Default.Forward,
+                                contentDescription = "前进30秒",
+                                modifier = Modifier.size(24.dp)
+                            )
                         }
                     }
-                    Text("30s", fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 // Next chapter
-                IconButton(onClick = { audiobookPlayer.skipNext() }) {
-                    Icon(Icons.Default.SkipNext, contentDescription = "下一章", modifier = Modifier.size(30.dp))
-                }
-                // Repeat
-                IconButton(onClick = { audiobookPlayer.toggleRepeat() }) {
-                    Icon(
-                        when (repeatMode) {
-                            0 -> Icons.Default.Repeat    // OFF
-                            1 -> Icons.Default.Repeat    // ALL
-                            else -> Icons.Default.RepeatOne // ONE
-                        },
-                        contentDescription = "循环",
-                        tint = if (repeatMode != 0) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(22.dp)
-                    )
+                IconButton(onClick = { audiobookPlayer.skipNext() }, modifier = Modifier.size(48.dp)) {
+                    Icon(Icons.Default.SkipNext, contentDescription = "下一章", modifier = Modifier.size(32.dp))
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
-            // Action bar: Sleep timer, Chapters
+            // Bottom action bar
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly
+                    .padding(horizontal = 32.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
+                // Speed
+                var speedIndex by remember { mutableIntStateOf(1) }
+                val speeds = listOf(0.75f, 1.0f, 1.25f, 1.5f, 1.75f, 2.0f)
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.clickable { showTimerDialog = true }
+                    modifier = Modifier.clickable {
+                        speedIndex = (speedIndex + 1) % speeds.size
+                        audiobookPlayer.setSpeed(speeds[speedIndex])
+                    }.padding(8.dp)
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                    ) {
+                        Text(
+                            "${speeds[speedIndex]}×",
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    Text("倍速", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
+                }
+                // Sleep timer
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.clickable { showTimerDialog = true }.padding(8.dp)
                 ) {
                     Icon(
                         Icons.Default.Timer,
@@ -330,15 +331,16 @@ fun AudiobookPlayerScreen(
                         else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+                // Chapters
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.clickable { showChapterSheet = true }
+                    modifier = Modifier.clickable { showChapterSheet = true }.padding(8.dp)
                 ) {
                     Icon(
                         Icons.Default.QueueMusic,
                         contentDescription = "章节",
-                        modifier = Modifier.size(24.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(24.dp)
                     )
                     Text(
                         "章节 ${currentChapterIndex + 1}/${chapters.size}",

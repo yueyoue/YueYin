@@ -1,6 +1,6 @@
 {
-  "versionCode": 1,
-  "versionName": "v1.0.1",
+  "versionCode": 2,
+  "versionName": "v1.0.2",
   "apkUrl": "https://yy.tthsdd.top/musicapp/update/app-release.apk",
-  "updateLog": "1. 新增有声书功能（Ting Reader）\n2. 设置页添加有声书开关\n3. 首页新增小说标签\n4. 有声书播放器支持前进/后退30秒\n5. 睡眠定时功能\n6. 记忆播放功能\n7. 息屏播放控制"
+  "updateLog": "1. 修复有声书播放器返回后停止播放的问题\n2. 有声书播放页优化：移除随机/循环按钮，统一前进后退按钮样式\n3. 新增有声书迷你播放器（返回后可继续控制播放）\n4. 有声书图片和数据缓存优化，减少卡顿\n5. UI界面整体优化"
 }
