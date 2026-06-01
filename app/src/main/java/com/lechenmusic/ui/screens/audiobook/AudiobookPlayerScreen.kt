@@ -27,7 +27,6 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.lechenmusic.data.model.TingChapter
 import com.lechenmusic.player.AudiobookPlayerManager
-import com.lechenmusic.player.RepeatMode
 import com.lechenmusic.ui.MainViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -288,12 +287,12 @@ fun AudiobookPlayerScreen(
                 IconButton(onClick = { audiobookPlayer.toggleRepeat() }) {
                     Icon(
                         when (repeatMode) {
-                            RepeatMode.OFF -> Icons.Default.Repeat
-                            RepeatMode.ALL -> Icons.Default.Repeat
-                            RepeatMode.ONE -> Icons.Default.RepeatOne
+                            0 -> Icons.Default.Repeat    // OFF
+                            1 -> Icons.Default.Repeat    // ALL
+                            else -> Icons.Default.RepeatOne // ONE
                         },
                         contentDescription = "循环",
-                        tint = if (repeatMode != RepeatMode.OFF) MaterialTheme.colorScheme.primary
+                        tint = if (repeatMode != 0) MaterialTheme.colorScheme.primary
                         else MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(22.dp)
                     )

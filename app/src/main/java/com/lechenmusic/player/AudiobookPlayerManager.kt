@@ -79,8 +79,9 @@ class AudiobookPlayerManager(private val context: Context) {
     private val _shuffleMode = MutableStateFlow(false)
     val shuffleMode: StateFlow<Boolean> = _shuffleMode.asStateFlow()
 
-    private val _repeatMode: MutableStateFlow<RepeatMode> = MutableStateFlow(RepeatMode.OFF)
-    val repeatMode: StateFlow<RepeatMode> = _repeatMode.asStateFlow()
+    // RepeatMode: 0=OFF, 1=ALL, 2=ONE
+    private val _repeatMode = MutableStateFlow(0)
+    val repeatMode: StateFlow<Int> = _repeatMode.asStateFlow()
 
     // Callback for progress saving
     var onProgressUpdate: ((bookId: String, chapterId: String, position: Long, duration: Long) -> Unit)? = null
@@ -343,7 +344,7 @@ class AudiobookPlayerManager(private val context: Context) {
                 it.seekTo(randomIndex, 0)
             } else if (it.hasNextMediaItem()) {
                 it.seekToNext()
-            } else if (_repeatMode.value == RepeatMode.ALL) {
+            } else if (_repeatMode.value == 1) { // ALL
                 it.seekTo(0, 0)
             }
         }
@@ -374,17 +375,16 @@ class AudiobookPlayerManager(private val context: Context) {
     }
 
     fun toggleRepeat() {
-        val current = _repeatMode.value
-        val next = when (current) {
-            RepeatMode.OFF -> RepeatMode.ALL
-            RepeatMode.ALL -> RepeatMode.ONE
-            RepeatMode.ONE -> RepeatMode.OFF
+        val next = when (_repeatMode.value) {
+            0 -> 1  // OFF -> ALL
+            1 -> 2  // ALL -> ONE
+            else -> 0 // ONE -> OFF
         }
         _repeatMode.value = next
         player?.repeatMode = when (next) {
-            RepeatMode.OFF -> Player.REPEAT_MODE_OFF
-            RepeatMode.ONE -> Player.REPEAT_MODE_ONE
-            RepeatMode.ALL -> Player.REPEAT_MODE_ALL
+            0 -> Player.REPEAT_MODE_OFF
+            2 -> Player.REPEAT_MODE_ONE
+            else -> Player.REPEAT_MODE_ALL
         }
     }
 
