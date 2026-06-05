@@ -39,7 +39,8 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             val viewModel: MainViewModel = viewModel()
-            YueYinTheme {
+            val darkMode by viewModel.darkMode.collectAsState()
+            YueYinTheme(darkTheme = darkMode) {
                 val updateInfo by viewModel.updateInfo.collectAsState()
                 val updateStatus by viewModel.updateStatus.collectAsState()
                 if (updateInfo != null) {
@@ -90,7 +91,7 @@ fun YueYinMain(viewModel: MainViewModel) {
                 AnimatedVisibility(visible = showBar || (bookId.isNotBlank() && !isOnPlayer), enter = slideInVertically(initialOffsetY = { it }), exit = slideOutVertically(targetOffsetY = { it })) {
                     Column {
                         if (bookId.isNotBlank() && !isOnPlayer) MiniPlayer(playerManager = ap, onClick = { navController.navigate(Screen.Player.createRoute(bookId)) })
-                        if (showBar) NavigationBar(containerColor = androidx.compose.ui.graphics.Color.White.copy(0.88f)) {
+                        if (showBar) NavigationBar(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f)) {
                             tabs.forEach { t ->
                                 NavigationBarItem(icon = { Icon(t.icon, t.label) }, label = { Text(t.label, fontSize = 10.sp) }, selected = route == t.route, onClick = {
                                     if (route == t.route) return@NavigationBarItem

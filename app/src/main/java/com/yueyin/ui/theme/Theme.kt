@@ -1,6 +1,7 @@
 package com.yueyin.ui.theme
 
 import android.app.Activity
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
@@ -16,8 +17,18 @@ private val LightColorScheme = lightColorScheme(
     outline = Border, error = Primary
 )
 
+private val DarkColorScheme = darkColorScheme(
+    primary = Primary, onPrimary = Color.White, primaryContainer = PrimaryLight,
+    background = DarkBackground, surface = DarkSurface, surfaceVariant = DarkSurfaceVariant,
+    onBackground = DarkOnBackground, onSurface = DarkOnSurface, onSurfaceVariant = DarkOnSurfaceVariant,
+    outline = DarkBorder, error = Primary,
+    surfaceTint = DarkSurface,
+    tertiaryContainer = DarkElevated
+)
+
 @Composable
-fun YueYinTheme(content: @Composable () -> Unit) {
+fun YueYinTheme(darkTheme: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
+    val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
@@ -25,9 +36,10 @@ fun YueYinTheme(content: @Composable () -> Unit) {
             window.statusBarColor = Color.Transparent.toArgb()
             window.navigationBarColor = Color.Transparent.toArgb()
             WindowCompat.getInsetsController(window, view).apply {
-                isAppearanceLightStatusBars = true; isAppearanceLightNavigationBars = true
+                isAppearanceLightStatusBars = !darkTheme
+                isAppearanceLightNavigationBars = !darkTheme
             }
         }
     }
-    MaterialTheme(colorScheme = LightColorScheme, typography = Typography(), content = content)
+    MaterialTheme(colorScheme = colorScheme, typography = Typography(), content = content)
 }

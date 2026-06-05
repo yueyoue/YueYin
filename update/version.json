@@ -1,6 +1,6 @@
 {
-    "versionCode": 4,
-    "versionName": "v1.0.4",
-    "apkUrl": "https://github.com/yueyoue/YueYin/releases/download/v1.0.4/app-release.apk",
-    "updateLog": "1. 全新UI设计，浅色风格\n2. 纯有声书体验\n3. 播放器支持±15秒跳转\n4. 锁屏播放控制\n5. 字段映射优化"
+    "versionCode": 5,
+    "versionName": "v1.0.5",
+    "apkUrl": "https://github.com/yueyoue/YueYin/releases/download/v1.0.5/app-release.apk",
+    "updateLog": "1. 播放页按钮顺序优化\n2. 前进后退15秒图标统一\n3. 书架显示收藏\n4. 首页视图切换\n5. 每日推荐随机更换\n6. 深色模式\n7. 搜索筛选\n8. 播放速度精简\n9. 定时精简\n10. 标题滚动显示"
 }

@@ -64,6 +64,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private var lastProgressSaveTime = 0L
 
+    // Dark mode
+    val darkMode: StateFlow<Boolean> = settings.darkMode.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    // Total listening hours
+    val totalListeningHours: StateFlow<Double> = _bookProgress.map { progressMap ->
+        progressMap.values.sumOf { it.duration ?: 0.0 } / 3600.0
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, 0.0)
+
     init {
         viewModelScope.launch {
             combine(settings.tingServerUrl, settings.tingUsername, settings.tingPassword) { url, user, pass -> Triple(url, user, pass) }
@@ -115,6 +123,23 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun updateServerInfo(serverUrl: String, username: String, password: String) {
+        viewModelScope.launch {
+            try {
+                settings.saveTingLogin(serverUrl, username, password)
+                tingRepository.configure(serverUrl, username, password)
+                val ping = tingRepository.ping()
+                if (ping.isFailure) { _toastMessage.value = "连接失败: ${ping.exceptionOrNull()?.message}"; return@launch }
+                if (tingRepository.login().isSuccess) {
+                    settings.saveTingToken(tingRepository.getAuthToken().removePrefix("Bearer "))
+                    audiobookPlayerManager.updateStreamAuth(serverUrl, tingRepository.getAuthToken().removePrefix("Bearer "))
+                    _toastMessage.value = "服务器信息已更新"
+                    loadBooks()
+                } else { _toastMessage.value = "登录失败" }
+            } catch (e: Exception) { _toastMessage.value = "更新失败: ${e.message}" }
+        }
+    }
+
     fun loadBooks() {
         viewModelScope.launch {
             val url = settings.tingServerUrl.first(); val user = settings.tingUsername.first(); val pass = settings.tingPassword.first()
@@ -149,7 +174,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun getRecentBooks(): List<TingBook> {
         val pm = _bookProgress.value
-        return _allBooks.value.filter { pm.containsKey(it.id) }.sortedByDescending { pm[it.id]?.updatedAt ?: "" }.take(10)
+        return _allBooks.value.filter { pm.containsKey(it.id) }.sortedByDescending { pm[it.id]?.updatedAt ?: "" }.take(5)
     }
 
     fun searchBooks(query: String) {
@@ -188,6 +213,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun isBookFavorite(bookId: String): StateFlow<Boolean> {
+        return _allBooks.map { books -> books.find { it.id == bookId }?.isFavorite ?: false }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+    }
+
     fun setAudiobookTimer(minutes: Int) {
         cancelTimer(); _timerRemainingSeconds.value = minutes * 60L
         countdownJob = viewModelScope.launch {
@@ -197,6 +227,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun cancelTimer() { countdownJob?.cancel(); countdownJob = null; _timerRemainingSeconds.value = 0 }
+
+    fun setDarkMode(enabled: Boolean) {
+        viewModelScope.launch { settings.saveDarkMode(enabled) }
+    }
 
     fun checkForUpdate(silent: Boolean = true) {
         viewModelScope.launch {
