@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "com.lechenmusic"
+    namespace = "com.yueyin"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.lechenmusic"
+        applicationId = "com.yueyin"
         minSdk = 26
         targetSdk = 34
         versionCode = 4

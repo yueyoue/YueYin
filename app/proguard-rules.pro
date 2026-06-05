@@ -8,7 +8,7 @@
 -dontwarn sun.misc.**
 -keep class com.google.gson.** { *; }
 -keep class com.google.gson.stream.** { *; }
--keep class com.lechenmusic.data.model.** { *; }
+-keep class com.yueyin.data.model.** { *; }
 -keep class com.google.gson.reflect.TypeToken { *; }
 -keep class * extends com.google.gson.reflect.TypeToken
 -keepattributes EnclosingMethod, InnerClasses
@@ -21,5 +21,5 @@
 -keep class androidx.media3.** { *; }
 -keep class androidx.media3.datasource.okhttp.** { *; }
 -keep class coil.** { *; }
--keep class com.lechenmusic.data.api.TingReaderApi { *; }
--keep class com.lechenmusic.data.api.TingReaderApiClient { *; }
+-keep class com.yueyin.data.api.TingReaderApi { *; }
+-keep class com.yueyin.data.api.TingReaderApiClient { *; }

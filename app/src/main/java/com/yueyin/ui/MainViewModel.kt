@@ -1,0 +1,226 @@
+package com.yueyin.ui
+
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import com.yueyin.YueYinApp
+import com.yueyin.data.model.*
+import com.yueyin.data.repository.SettingsRepository
+import com.yueyin.data.repository.TingReaderRepository
+import com.yueyin.player.AudiobookPlayerManager
+import com.yueyin.update.UpdateChecker
+import com.yueyin.update.UpdateInfo
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+
+class MainViewModel(application: Application) : AndroidViewModel(application) {
+    private val app = application as YueYinApp
+    val tingRepository: TingReaderRepository = app.tingRepository
+    val audiobookPlayerManager: AudiobookPlayerManager = app.audiobookPlayerManager
+    private val settings: SettingsRepository = app.settingsRepository
+
+    private val _isLoggedIn = MutableStateFlow(false)
+    val isLoggedIn: StateFlow<Boolean> = _isLoggedIn.asStateFlow()
+    private val _isLoading = MutableStateFlow(false)
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+    private val _loginError = MutableStateFlow<String?>(null)
+    val loginError: StateFlow<String?> = _loginError.asStateFlow()
+    val tingServerUrl: StateFlow<String> = settings.tingServerUrl.stateIn(viewModelScope, SharingStarted.Eagerly, "")
+    val tingToken: StateFlow<String> = settings.tingToken.stateIn(viewModelScope, SharingStarted.Eagerly, "")
+
+    private val _toastMessage = MutableStateFlow<String?>(null)
+    val toastMessage: StateFlow<String?> = _toastMessage.asStateFlow()
+    fun clearToast() { _toastMessage.value = null }
+
+    private val _allBooks = MutableStateFlow<List<TingBook>>(emptyList())
+    val allBooks: StateFlow<List<TingBook>> = _allBooks.asStateFlow()
+    private val _booksLoading = MutableStateFlow(false)
+    val booksLoading: StateFlow<Boolean> = _booksLoading.asStateFlow()
+    private val _bookProgress = MutableStateFlow<Map<String, TingProgress>>(emptyMap())
+    val bookProgress: StateFlow<Map<String, TingProgress>> = _bookProgress.asStateFlow()
+
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+    private val _searchResults = MutableStateFlow<List<TingBook>>(emptyList())
+    val searchResults: StateFlow<List<TingBook>> = _searchResults.asStateFlow()
+
+    private val _genres = MutableStateFlow<List<String>>(emptyList())
+    val genres: StateFlow<List<String>> = _genres.asStateFlow()
+    private val _selectedGenre = MutableStateFlow("全部")
+    val selectedGenre: StateFlow<String> = _selectedGenre.asStateFlow()
+
+    private val _stats = MutableStateFlow(TingStats())
+    val stats: StateFlow<TingStats> = _stats.asStateFlow()
+
+    private val _timerRemainingSeconds = MutableStateFlow(0L)
+    val timerRemainingSeconds: StateFlow<Long> = _timerRemainingSeconds.asStateFlow()
+    private var countdownJob: kotlinx.coroutines.Job? = null
+
+    private val _updateInfo = MutableStateFlow<UpdateInfo?>(null)
+    val updateInfo: StateFlow<UpdateInfo?> = _updateInfo.asStateFlow()
+    private val _updateStatus = MutableStateFlow<String?>(null)
+    val updateStatus: StateFlow<String?> = _updateStatus.asStateFlow()
+
+    private var lastProgressSaveTime = 0L
+
+    init {
+        viewModelScope.launch {
+            combine(settings.tingServerUrl, settings.tingUsername, settings.tingPassword) { url, user, pass -> Triple(url, user, pass) }
+                .collect { (url, user, pass) ->
+                    if (url.isNotBlank() && user.isNotBlank() && pass.isNotBlank()) {
+                        tingRepository.configure(url, user, pass)
+                        if (tingRepository.login().isSuccess) {
+                            settings.saveTingToken(tingRepository.getAuthToken().removePrefix("Bearer "))
+                            _isLoggedIn.value = true; loadBooks()
+                        }
+                    }
+                }
+        }
+        audiobookPlayerManager.onProgressUpdate = { bookId, chapterId, position, duration ->
+            val now = System.currentTimeMillis()
+            if (now - lastProgressSaveTime > 5000) {
+                lastProgressSaveTime = now
+                viewModelScope.launch { try { tingRepository.saveProgress(bookId, chapterId, position.toDouble() / 1000.0, duration.toDouble() / 1000.0) } catch (_: Exception) {} }
+            }
+        }
+        audiobookPlayerManager.onChapterAutoAdvanced = { chapter ->
+            viewModelScope.launch { try { tingRepository.saveProgress(audiobookPlayerManager.currentBookId.value, chapter.id, 0.0, chapter.duration) } catch (_: Exception) {} }
+        }
+    }
+
+    fun login(serverUrl: String, username: String, password: String) {
+        viewModelScope.launch {
+            _isLoading.value = true; _loginError.value = null
+            try {
+                tingRepository.configure(serverUrl, username, password)
+                val ping = tingRepository.ping()
+                if (ping.isFailure) { _loginError.value = ping.exceptionOrNull()?.message; _isLoading.value = false; return@launch }
+                if (tingRepository.login().isSuccess) {
+                    settings.saveTingLogin(serverUrl, username, password)
+                    settings.saveTingToken(tingRepository.getAuthToken().removePrefix("Bearer "))
+                    audiobookPlayerManager.updateStreamAuth(serverUrl, tingRepository.getAuthToken().removePrefix("Bearer "))
+                    _isLoggedIn.value = true; loadBooks()
+                } else { _loginError.value = "登录失败" }
+            } catch (e: Exception) { _loginError.value = e.message ?: "连接失败" }
+            finally { _isLoading.value = false }
+        }
+    }
+
+    fun logout() {
+        viewModelScope.launch {
+            settings.clearTingLogin(); _isLoggedIn.value = false
+            _allBooks.value = emptyList(); _bookProgress.value = emptyMap()
+            audiobookPlayerManager.release()
+        }
+    }
+
+    fun loadBooks() {
+        viewModelScope.launch {
+            val url = settings.tingServerUrl.first(); val user = settings.tingUsername.first(); val pass = settings.tingPassword.first()
+            if (url.isBlank() || user.isBlank()) return@launch
+            _booksLoading.value = true
+            try {
+                tingRepository.configure(url, user, pass); tingRepository.login()
+                audiobookPlayerManager.updateStreamAuth(url, tingRepository.getAuthToken().removePrefix("Bearer "))
+                tingRepository.getBooks().onSuccess { books ->
+                    _allBooks.value = books
+                    val gs = mutableSetOf<String>()
+                    books.forEach { b ->
+                        b.genre?.split(",")?.forEach { if (it.isNotBlank()) gs.add(it.trim()) }
+                        b.tags?.split(",")?.forEach { if (it.isNotBlank()) gs.add(it.trim()) }
+                    }
+                    _genres.value = listOf("全部") + gs.sorted()
+                }
+                tingRepository.getRecentProgress().onSuccess { _bookProgress.value = it.associateBy { p -> p.bookId } }
+                try { tingRepository.getStats().getOrNull()?.let { _stats.value = it } } catch (_: Exception) {}
+            } catch (e: Exception) { _toastMessage.value = "加载失败: ${e.message}" }
+            finally { _booksLoading.value = false }
+        }
+    }
+
+    fun setSelectedGenre(genre: String) { _selectedGenre.value = genre }
+
+    fun getFilteredBooks(): List<TingBook> {
+        val g = _selectedGenre.value; val books = _allBooks.value
+        if (g == "全部") return books
+        return books.filter { (it.genre?.contains(g, true) == true) || (it.tags?.contains(g, true) == true) }
+    }
+
+    fun getRecentBooks(): List<TingBook> {
+        val pm = _bookProgress.value
+        return _allBooks.value.filter { pm.containsKey(it.id) }.sortedByDescending { pm[it.id]?.updatedAt ?: "" }.take(10)
+    }
+
+    fun searchBooks(query: String) {
+        _searchQuery.value = query
+        if (query.isBlank()) { _searchResults.value = emptyList(); return }
+        viewModelScope.launch { tingRepository.searchBooks(query).onSuccess { _searchResults.value = it } }
+    }
+
+    fun loadAndPlayAudiobook(bookId: String) {
+        viewModelScope.launch {
+            try {
+                val url = settings.tingServerUrl.first(); val user = settings.tingUsername.first(); val pass = settings.tingPassword.first()
+                if (url.isNotBlank() && user.isNotBlank()) {
+                    tingRepository.configure(url, user, pass); tingRepository.login()
+                    audiobookPlayerManager.updateStreamAuth(url, tingRepository.getAuthToken().removePrefix("Bearer "))
+                }
+                tingRepository.getChapters(bookId).onSuccess { chapters ->
+                    if (chapters.isEmpty()) { _toastMessage.value = "该书暂无章节"; return@launch }
+                    var startIdx = 0; var startMs = 0L
+                    tingRepository.getBookProgress(bookId).onSuccess { p ->
+                        if (p != null) { val i = chapters.indexOfFirst { it.id == p.chapterId }; if (i >= 0) { startIdx = i; startMs = (p.position * 1000).toLong() } }
+                    }
+                    tingRepository.getBook(bookId).onSuccess { book ->
+                        audiobookPlayerManager.playBook(bookId, book.title, book.author, book.narrator ?: "", book.coverUrl, chapters, startIdx, startMs)
+                    }
+                }
+            } catch (e: Exception) { _toastMessage.value = "播放失败: ${e.message}" }
+        }
+    }
+
+    fun toggleFavorite(bookId: String) {
+        viewModelScope.launch {
+            val book = _allBooks.value.find { it.id == bookId } ?: return@launch
+            if (book.isFavorite) tingRepository.removeFavorite(bookId) else tingRepository.addFavorite(bookId)
+            loadBooks()
+        }
+    }
+
+    fun setAudiobookTimer(minutes: Int) {
+        cancelTimer(); _timerRemainingSeconds.value = minutes * 60L
+        countdownJob = viewModelScope.launch {
+            while (_timerRemainingSeconds.value > 0) { kotlinx.coroutines.delay(1000); _timerRemainingSeconds.value = (_timerRemainingSeconds.value - 1).coerceAtLeast(0) }
+            audiobookPlayerManager.forcePause()
+        }
+    }
+
+    fun cancelTimer() { countdownJob?.cancel(); countdownJob = null; _timerRemainingSeconds.value = 0 }
+
+    fun checkForUpdate(silent: Boolean = true) {
+        viewModelScope.launch {
+            try {
+                val ctx = getApplication<android.app.Application>()
+                val code = if (android.os.Build.VERSION.SDK_INT >= 28) ctx.packageManager.getPackageInfo(ctx.packageName, 0).longVersionCode.toInt()
+                else @Suppress("DEPRECATION") ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionCode
+                val info = UpdateChecker.check(code)
+                if (info != null) _updateInfo.value = info
+                else if (!silent) _toastMessage.value = "当前已是最新版本 ✓"
+            } catch (e: Exception) { if (!silent) _toastMessage.value = "检查更新失败: ${e.message}" }
+        }
+    }
+
+    fun downloadUpdate() {
+        val info = _updateInfo.value ?: return
+        viewModelScope.launch {
+            _updateStatus.value = "正在下载..."
+            val ctx = getApplication<android.app.Application>()
+            val file = UpdateChecker.downloadApk(ctx, info.apkUrl) { _updateStatus.value = it }
+            if (file != null) { _updateStatus.value = "安装中..."; UpdateChecker.installApk(ctx, file); kotlinx.coroutines.delay(8000) }
+            _updateStatus.value = null; _updateInfo.value = null
+        }
+    }
+
+    fun dismissUpdate() { _updateInfo.value = null; _updateStatus.value = null }
+}
