@@ -1,6 +1,7 @@
 package com.yueyin.ui.screens.player
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -42,7 +43,7 @@ fun Seek15Icon(isForward: Boolean, modifier: Modifier = Modifier) {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun PlayerScreen(bookId: String, viewModel: MainViewModel, onBack: () -> Unit) {
     val ap = viewModel.audiobookPlayerManager

@@ -101,7 +101,7 @@ fun ProfileScreen(viewModel: MainViewModel) {
             Column {
                 MenuItem(Icons.Default.Refresh, "刷新数据") { viewModel.loadBooks() }
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outline)
-                MenuItem(Icons.Default.DarkMode, "深色模式", if (darkMode) "已开启" else "已关闭") { viewModel.setDarkMode(!darkMode) }
+                MenuItem(Icons.Default.Brightness4, "深色模式", if (darkMode) "已开启" else "已关闭") { viewModel.setDarkMode(!darkMode) }
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outline)
                 MenuItem(Icons.Default.Update, "检查更新") { viewModel.checkForUpdate(silent = false) }
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outline)
