@@ -1,6 +1,6 @@
 {
-  "versionCode": 3,
-  "versionName": "v1.0.3",
-  "apkUrl": "https://yy.tthsdd.top/musicapp/update/app-release.apk",
-  "updateLog": "1. 修复更新提示误弹旧版本号的问题\n2. 修复音乐暂停后打开有声书出现双播放器的问题\n3. 优化有声书封面图片缓存，加载更快\n4. 版本签名统一，支持无缝自动更新"
+    "versionCode": 4,
+    "versionName": "v1.0.4",
+    "apkUrl": "https://github.com/yueyoue/YueYin/releases/download/v1.0.4/app-release.apk",
+    "updateLog": "1. 全新UI设计，浅色风格\n2. 纯有声书体验\n3. 播放器支持±15秒跳转\n4. 锁屏播放控制\n5. 字段映射优化"
 }

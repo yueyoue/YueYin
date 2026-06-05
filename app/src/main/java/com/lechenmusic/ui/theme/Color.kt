@@ -2,31 +2,18 @@ package com.lechenmusic.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Dark Theme
-val DarkPrimary = Color(0xFFFF4757)
-val DarkPrimaryDark = Color(0xFFE8414F)
-val DarkBackground = Color(0xFF0E0E0E)
-val DarkSurface = Color(0xFF1A1A1A)
-val DarkSurfaceVariant = Color(0xFF222222)
-val DarkOnBackground = Color(0xFFFFFFFF)
-val DarkOnSurface = Color(0xFFFFFFFF)
-val DarkOnSurfaceVariant = Color(0xFF999999)
-val DarkBorder = Color(0xFF2A2A2A)
-
-// Light Theme
-val LightPrimary = Color(0xFFFF4757)
-val LightPrimaryDark = Color(0xFFE8414F)
-val LightBackground = Color(0xFFF5F5F7)
-val LightSurface = Color(0xFFFFFFFF)
-val LightSurfaceVariant = Color(0xFFEFEFEF)
-val LightOnBackground = Color(0xFF1A1A1A)
-val LightOnSurface = Color(0xFF1A1A1A)
-val LightOnSurfaceVariant = Color(0xFF666666)
-val LightBorder = Color(0xFFE0E0E0)
-
-// Accent Colors
-val AccentGreen = Color(0xFF2ED573)
-val AccentBlue = Color(0xFF5352ED)
-val AccentOrange = Color(0xFFFFA502)
-val AccentPurple = Color(0xFFA55EEA)
-val AccentPink = Color(0xFFFF6B81)
+val Primary = Color(0xFFFF3B30)
+val PrimaryLight = Color(0xFFFF6B63)
+val PrimaryBg = Color(0x14FF3B30)
+val Background = Color(0xFFF2F2F7)
+val Surface = Color(0xFFFFFFFF)
+val SurfaceVariant = Color(0xFFF2F2F7)
+val OnBackground = Color(0xFF1C1C1E)
+val OnSurface = Color(0xFF1C1C1E)
+val OnSurfaceVariant = Color(0xFF8E8E93)
+val OnSurfaceVariant2 = Color(0xFFAEAEB2)
+val Border = Color(0xFFE5E5EA)
+val BorderLight = Color(0xFFF2F2F7)
+val Green = Color(0xFF34C759)
+val Blue = Color(0xFF007AFF)
+val Orange = Color(0xFFFF9500)

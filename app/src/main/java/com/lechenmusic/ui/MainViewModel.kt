@@ -3,982 +3,224 @@ package com.lechenmusic.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.lechenmusic.LeChenApp
+import com.lechenmusic.YueYinApp
 import com.lechenmusic.data.model.*
-import com.lechenmusic.data.repository.MusicRepository
 import com.lechenmusic.data.repository.SettingsRepository
-import com.lechenmusic.data.repository.ServerStats
-import com.lechenmusic.player.MusicPlayerManager
-import com.lechenmusic.player.RepeatMode
+import com.lechenmusic.data.repository.TingReaderRepository
+import com.lechenmusic.player.AudiobookPlayerManager
 import com.lechenmusic.update.UpdateChecker
 import com.lechenmusic.update.UpdateInfo
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
-    private val app = application as LeChenApp
-    private val repository: MusicRepository = app.repository
+    private val app = application as YueYinApp
+    val tingRepository: TingReaderRepository = app.tingRepository
+    val audiobookPlayerManager: AudiobookPlayerManager = app.audiobookPlayerManager
     private val settings: SettingsRepository = app.settingsRepository
-    val playerManager: MusicPlayerManager = app.playerManager
-    val tingRepository = app.tingRepository
-    val audiobookPlayerManager = app.audiobookPlayerManager
 
-    // Theme
-    val themeMode: StateFlow<String> = settings.themeMode
-        .stateIn(viewModelScope, SharingStarted.Eagerly, "dark")
-
-    // Login state
     private val _isLoggedIn = MutableStateFlow(false)
     val isLoggedIn: StateFlow<Boolean> = _isLoggedIn.asStateFlow()
-
-    private val _loginError = MutableStateFlow<String?>(null)
-    val loginError: StateFlow<String?> = _loginError.asStateFlow()
-
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+    private val _loginError = MutableStateFlow<String?>(null)
+    val loginError: StateFlow<String?> = _loginError.asStateFlow()
+    val tingServerUrl: StateFlow<String> = settings.tingServerUrl.stateIn(viewModelScope, SharingStarted.Eagerly, "")
+    val tingToken: StateFlow<String> = settings.tingToken.stateIn(viewModelScope, SharingStarted.Eagerly, "")
 
-    // Home data
-    private val _newestAlbums = MutableStateFlow<List<Album>>(emptyList())
-    val newestAlbums: StateFlow<List<Album>> = _newestAlbums.asStateFlow()
+    private val _toastMessage = MutableStateFlow<String?>(null)
+    val toastMessage: StateFlow<String?> = _toastMessage.asStateFlow()
+    fun clearToast() { _toastMessage.value = null }
 
-    private val _randomAlbums = MutableStateFlow<List<Album>>(emptyList())
-    val randomAlbums: StateFlow<List<Album>> = _randomAlbums.asStateFlow()
-
-    private val _dailySongs = MutableStateFlow<List<Song>>(emptyList())
-    val dailySongs: StateFlow<List<Song>> = _dailySongs.asStateFlow()
-
-    private val _recentSongs = MutableStateFlow<List<Song>>(emptyList())
-    val recentSongs: StateFlow<List<Song>> = _recentSongs.asStateFlow()
-
-    private val _playlists = MutableStateFlow<List<Playlist>>(emptyList())
-    val playlists: StateFlow<List<Playlist>> = _playlists.asStateFlow()
-
-    // Artists
-    private val _artists = MutableStateFlow<List<Artist>>(emptyList())
-    val artists: StateFlow<List<Artist>> = _artists.asStateFlow()
-
-    // Search
-    private val _searchResults = MutableStateFlow<SearchResult?>(null)
-    val searchResults: StateFlow<SearchResult?> = _searchResults.asStateFlow()
+    private val _allBooks = MutableStateFlow<List<TingBook>>(emptyList())
+    val allBooks: StateFlow<List<TingBook>> = _allBooks.asStateFlow()
+    private val _booksLoading = MutableStateFlow(false)
+    val booksLoading: StateFlow<Boolean> = _booksLoading.asStateFlow()
+    private val _bookProgress = MutableStateFlow<Map<String, TingProgress>>(emptyMap())
+    val bookProgress: StateFlow<Map<String, TingProgress>> = _bookProgress.asStateFlow()
 
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+    private val _searchResults = MutableStateFlow<List<TingBook>>(emptyList())
+    val searchResults: StateFlow<List<TingBook>> = _searchResults.asStateFlow()
 
-    // Starred
-    private val _starredSongs = MutableStateFlow<List<Song>>(emptyList())
-    val starredSongs: StateFlow<List<Song>> = _starredSongs.asStateFlow()
+    private val _genres = MutableStateFlow<List<String>>(emptyList())
+    val genres: StateFlow<List<String>> = _genres.asStateFlow()
+    private val _selectedGenre = MutableStateFlow("全部")
+    val selectedGenre: StateFlow<String> = _selectedGenre.asStateFlow()
 
-    // Server stats
-    private val _serverStats = MutableStateFlow(ServerStats())
-    val serverStats: StateFlow<ServerStats> = _serverStats.asStateFlow()
+    private val _stats = MutableStateFlow(TingStats())
+    val stats: StateFlow<TingStats> = _stats.asStateFlow()
 
-    // Lyrics
-    private val _currentLyrics = MutableStateFlow<String?>(null)
-    val currentLyrics: StateFlow<String?> = _currentLyrics.asStateFlow()
-
-    // Recent plays (song objects)
-    private val _recentPlayedSongs = MutableStateFlow<List<Song>>(emptyList())
-    val recentPlayedSongs: StateFlow<List<Song>> = _recentPlayedSongs.asStateFlow()
-
-    // All songs
-    private val _allSongs = MutableStateFlow<List<Song>>(emptyList())
-    val allSongs: StateFlow<List<Song>> = _allSongs.asStateFlow()
-
-    // All songs loading state
-    private val _allSongsLoading = MutableStateFlow(false)
-    val allSongsLoading: StateFlow<Boolean> = _allSongsLoading.asStateFlow()
-
-    private val _allSongsLoadError = MutableStateFlow<String?>(null)
-    val allSongsLoadError: StateFlow<String?> = _allSongsLoadError.asStateFlow()
-
-    // Internet Radio Stations
-    private val _radioStations = MutableStateFlow<List<InternetRadioStation>>(emptyList())
-    val radioStations: StateFlow<List<InternetRadioStation>> = _radioStations.asStateFlow()
-
-    // Timer countdown (seconds remaining)
     private val _timerRemainingSeconds = MutableStateFlow(0L)
     val timerRemainingSeconds: StateFlow<Long> = _timerRemainingSeconds.asStateFlow()
+    private var countdownJob: kotlinx.coroutines.Job? = null
 
-    // Sync status
-    private val _syncStatus = MutableStateFlow("")
-    val syncStatus: StateFlow<String> = _syncStatus.asStateFlow()
-
-    // App Update
     private val _updateInfo = MutableStateFlow<UpdateInfo?>(null)
     val updateInfo: StateFlow<UpdateInfo?> = _updateInfo.asStateFlow()
+    private val _updateStatus = MutableStateFlow<String?>(null)
+    val updateStatus: StateFlow<String?> = _updateStatus.asStateFlow()
 
-    private val _updateStatus = MutableStateFlow("")
-    val updateStatus: StateFlow<String> = _updateStatus.asStateFlow()
-
-    private val _isCheckingUpdate = MutableStateFlow(false)
-    val isCheckingUpdate: StateFlow<Boolean> = _isCheckingUpdate.asStateFlow()
-
-    // Toast message for user feedback
-    private val _toastMessage = MutableStateFlow<String?>(null)
-    val toastMessage: StateFlow<String?> = _toastMessage.asStateFlow()
-
-    fun clearToast() {
-        _toastMessage.value = null
-    }
-
-    /**
-     * 检查更新（自动或手动调用）
-     * @param silent true=静默检查（无更新不提示），false=手动检查（无更新也提示）
-     */
-    fun checkForUpdate(silent: Boolean = true) {
-        viewModelScope.launch {
-            _isCheckingUpdate.value = true
-            if (!silent) _updateStatus.value = "检查中..."
-            try {
-                val context = getApplication<Application>()
-                val currentVersionCode = if (android.os.Build.VERSION.SDK_INT >= 28) {
-                    context.packageManager.getPackageInfo(context.packageName, 0).longVersionCode.toInt()
-                } else {
-                    @Suppress("DEPRECATION")
-                    context.packageManager.getPackageInfo(context.packageName, 0).versionCode
-                }
-                val info = UpdateChecker.check(currentVersionCode)
-                if (info != null) {
-                    // If silent auto-check, respect skipped version
-                    if (silent) {
-                        val skippedCode = settings.skippedVersionCode.first()
-                        if (skippedCode >= info.versionCode) {
-                            // User already skipped this version, don't show
-                            _isCheckingUpdate.value = false
-                            _updateStatus.value = ""
-                            return@launch
-                        }
-                    }
-                    _updateInfo.value = info
-                } else if (!silent) {
-                    _toastMessage.value = "当前已是最新版本 ✓"
-                }
-            } catch (e: Exception) {
-                if (!silent) _toastMessage.value = "检查更新失败: ${e.message}"
-            } finally {
-                _isCheckingUpdate.value = false
-                if (!silent) _updateStatus.value = ""
-            }
-        }
-    }
-
-    /** Skip current update version */
-    fun skipUpdate() {
-        val info = _updateInfo.value ?: return
-        viewModelScope.launch {
-            settings.setSkippedVersionCode(info.versionCode)
-            _updateInfo.value = null
-            _updateStatus.value = ""
-        }
-    }
-
-    /** 下载并安装更新 */
-    fun downloadUpdate() {
-        val info = _updateInfo.value ?: return
-        viewModelScope.launch {
-            _updateStatus.value = "正在下载..."
-            val context = getApplication<Application>()
-            val apkFile = UpdateChecker.downloadApk(
-                context = context,
-                apkUrl = info.apkUrl,
-                onProgress = { _updateStatus.value = it }
-            )
-            if (apkFile != null) {
-                _updateStatus.value = "下载完成，正在安装..."
-                val success = UpdateChecker.installApk(context, apkFile)
-                if (!success) {
-                    _updateStatus.value = "安装启动失败"
-                    kotlinx.coroutines.delay(3000)
-                } else {
-                    // 延迟后重置状态，避免卡在"正在安装"
-                    kotlinx.coroutines.delay(8000)
-                }
-                _updateStatus.value = ""
-                _updateInfo.value = null
-            } else {
-                // downloadApk already set error message via onProgress
-                kotlinx.coroutines.delay(3000)
-                _updateStatus.value = ""
-            }
-        }
-    }
-
-    /** 关闭更新弹窗 */
-    fun dismissUpdate() {
-        _updateInfo.value = null
-        _updateStatus.value = ""
-    }
-
-    // Album detail
-    private val _currentAlbum = MutableStateFlow<AlbumDetail?>(null)
-    val currentAlbum: StateFlow<AlbumDetail?> = _currentAlbum.asStateFlow()
-
-    // Artist detail
-    private val _currentArtist = MutableStateFlow<ArtistDetail?>(null)
-    val currentArtist: StateFlow<ArtistDetail?> = _currentArtist.asStateFlow()
-
-    // Playlist detail
-    private val _currentPlaylist = MutableStateFlow<PlaylistDetail?>(null)
-    val currentPlaylist: StateFlow<PlaylistDetail?> = _currentPlaylist.asStateFlow()
-
-    // Cache size setting
-    val cacheSize: StateFlow<Int> = settings.cacheSize
-        .stateIn(viewModelScope, SharingStarted.Eagerly, 4)
-
-    // Server info
-    val serverUrl: StateFlow<String> = settings.serverUrl
-        .stateIn(viewModelScope, SharingStarted.Eagerly, "")
-    val username: StateFlow<String> = settings.username
-        .stateIn(viewModelScope, SharingStarted.Eagerly, "")
-    val password: StateFlow<String> = settings.password
-        .stateIn(viewModelScope, SharingStarted.Eagerly, "")
+    private var lastProgressSaveTime = 0L
 
     init {
-        // Check if already logged in
         viewModelScope.launch {
-            combine(settings.serverUrl, settings.username, settings.password) { url, user, pass ->
-                Triple(url, user, pass)
-            }.collect { (url, user, pass) ->
-                if (url.isNotBlank() && user.isNotBlank() && pass.isNotBlank()) {
-                    repository.configure(url, user, pass)
-                    _isLoggedIn.value = true
-                    loadHomeData()
-                    // Auto-sync all songs in background
-                    loadAllSongs()
+            combine(settings.tingServerUrl, settings.tingUsername, settings.tingPassword) { url, user, pass -> Triple(url, user, pass) }
+                .collect { (url, user, pass) ->
+                    if (url.isNotBlank() && user.isNotBlank() && pass.isNotBlank()) {
+                        tingRepository.configure(url, user, pass)
+                        if (tingRepository.login().isSuccess) {
+                            settings.saveTingToken(tingRepository.getAuthToken().removePrefix("Bearer "))
+                            _isLoggedIn.value = true; loadBooks()
+                        }
+                    }
                 }
-            }
         }
-
-        // Register callback for auto-advance (lock screen / background playback)
-        playerManager.onSongAutoAdvanced = { song ->
-            viewModelScope.launch {
-                settings.addRecentPlay(song.id)
-                addSongToRecentCache(song)
-                // Refresh recent played songs list
-                loadRecentPlayedSongs()
-            }
-        }
-
-        // Update progress periodically
-        viewModelScope.launch {
-            while (true) {
-                kotlinx.coroutines.delay(500)
-                playerManager.updateProgress()
-            }
-        }
-
-        // Setup audiobook player progress saving
         audiobookPlayerManager.onProgressUpdate = { bookId, chapterId, position, duration ->
             val now = System.currentTimeMillis()
-            if (now - lastProgressSaveTime > 5000) { // Save every 5 seconds
+            if (now - lastProgressSaveTime > 5000) {
                 lastProgressSaveTime = now
-                viewModelScope.launch {
-                    try {
-                        tingRepository.saveProgress(bookId, chapterId, position.toDouble() / 1000.0, duration.toDouble() / 1000.0)
-                    } catch (_: Exception) { }
-                }
+                viewModelScope.launch { try { tingRepository.saveProgress(bookId, chapterId, position.toDouble() / 1000.0, duration.toDouble() / 1000.0) } catch (_: Exception) {} }
             }
         }
-
         audiobookPlayerManager.onChapterAutoAdvanced = { chapter ->
-            viewModelScope.launch {
-                try {
-                    tingRepository.saveProgress(
-                        audiobookPlayerManager.currentBookId.value,
-                        chapter.id,
-                        0.0,
-                        chapter.duration
-                    )
-                } catch (_: Exception) { }
-            }
-        }
-
-        // Load audiobooks if enabled (only on first enable, not every recomposition)
-        viewModelScope.launch {
-            var wasEnabled = false
-            settings.tingEnabled.collect { enabled ->
-                if (enabled && !wasEnabled) {
-                    wasEnabled = true
-                    loadAudiobooks()
-                } else if (!enabled) {
-                    wasEnabled = false
-                }
-            }
+            viewModelScope.launch { try { tingRepository.saveProgress(audiobookPlayerManager.currentBookId.value, chapter.id, 0.0, chapter.duration) } catch (_: Exception) {} }
         }
     }
 
     fun login(serverUrl: String, username: String, password: String) {
         viewModelScope.launch {
-            _isLoading.value = true
-            _loginError.value = null
+            _isLoading.value = true; _loginError.value = null
             try {
-                repository.configure(serverUrl, username, password)
-                val result = repository.ping()
-                if (result.isSuccess) {
-                    settings.saveLogin(serverUrl, username, password)
-                    _isLoggedIn.value = true
-                    loadHomeData()
-                } else {
-                    _loginError.value = result.exceptionOrNull()?.message ?: "连接失败"
-                }
-            } catch (e: Exception) {
-                _loginError.value = e.message ?: "连接失败"
-            } finally {
-                _isLoading.value = false
-            }
+                tingRepository.configure(serverUrl, username, password)
+                val ping = tingRepository.ping()
+                if (ping.isFailure) { _loginError.value = ping.exceptionOrNull()?.message; _isLoading.value = false; return@launch }
+                if (tingRepository.login().isSuccess) {
+                    settings.saveTingLogin(serverUrl, username, password)
+                    settings.saveTingToken(tingRepository.getAuthToken().removePrefix("Bearer "))
+                    audiobookPlayerManager.updateStreamAuth(serverUrl, tingRepository.getAuthToken().removePrefix("Bearer "))
+                    _isLoggedIn.value = true; loadBooks()
+                } else { _loginError.value = "登录失败" }
+            } catch (e: Exception) { _loginError.value = e.message ?: "连接失败" }
+            finally { _isLoading.value = false }
         }
     }
 
     fun logout() {
         viewModelScope.launch {
-            settings.clearLogin()
-            _isLoggedIn.value = false
-            _randomAlbums.value = emptyList()
-        }
-    }
-
-    fun setThemeMode(mode: String) {
-        viewModelScope.launch {
-            settings.setThemeMode(mode)
-        }
-    }
-
-    fun setCacheSize(sizeGb: Int) {
-        viewModelScope.launch {
-            settings.setCacheSize(sizeGb)
-        }
-    }
-
-    fun loadHomeData() {
-        viewModelScope.launch {
-            // Load newest albums
-            repository.getNewestAlbums(10).onSuccess { _newestAlbums.value = it }
-
-            // Load random albums - only if not already loaded (user must click "换一批" to refresh)
-            if (_randomAlbums.value.isEmpty()) {
-                repository.getRandomAlbums(10).onSuccess { _randomAlbums.value = it }
-            }
-
-            // Load daily random songs - use cache if same day, only refresh on user click
-            val today = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date())
-            val cachedDate = settings.cachedDailySongsDate.first()
-            val cachedDailyJson = settings.cachedDailySongsJson.first()
-            if (cachedDate == today && cachedDailyJson.isNotBlank()) {
-                try {
-                    val type = object : TypeToken<List<Song>>() {}.type
-                    val cachedSongs: List<Song> = Gson().fromJson(cachedDailyJson, type)
-                    if (cachedSongs.isNotEmpty()) {
-                        _dailySongs.value = cachedSongs
-                    } else {
-                        repository.getRandomSongs(4).onSuccess {
-                            _dailySongs.value = it
-                            settings.saveCachedDailySongs(Gson().toJson(it), today)
-                        }
-                    }
-                } catch (_: Exception) {
-                    repository.getRandomSongs(4).onSuccess {
-                        _dailySongs.value = it
-                        settings.saveCachedDailySongs(Gson().toJson(it), today)
-                    }
-                }
-            } else {
-                repository.getRandomSongs(4).onSuccess {
-                    _dailySongs.value = it
-                    settings.saveCachedDailySongs(Gson().toJson(it), today)
-                }
-            }
-
-            // Load playlists
-            repository.getPlaylists().onSuccess { _playlists.value = it }
-
-            // Load internet radio stations
-            repository.getInternetRadioStations().onSuccess { _radioStations.value = it }
-
-            // Load starred songs
-            repository.getStarred().onSuccess { _starredSongs.value = it.songs }
-
-            // Load recent played songs from stored IDs
-            loadRecentPlayedSongs()
-
-            // Load server stats
-            repository.getServerStats().onSuccess { _serverStats.value = it }
-        }
-    }
-
-    private suspend fun loadRecentPlayedSongs() {
-        // Try cached song objects first (most reliable)
-        try {
-            val cachedJson = settings.cachedRecentSongsJson.first()
-            if (cachedJson.isNotBlank()) {
-                val type = object : TypeToken<List<Song>>() {}.type
-                val cachedSongs: List<Song> = Gson().fromJson(cachedJson, type) ?: emptyList()
-                if (cachedSongs.isNotEmpty()) {
-                    _recentPlayedSongs.value = cachedSongs.take(20)
-                    return
-                }
-            }
-        } catch (_: Exception) { }
-
-        // Fallback: search through albums by IDs
-        val idsStr = settings.recentPlayIds.first()
-        if (idsStr.isBlank()) return
-        val ids = idsStr.split(",").filter { it.isNotEmpty() }
-        if (ids.isEmpty()) return
-        val recentSongs = mutableListOf<Song>()
-
-        // First try: search through allSongs cache (fast, usually available)
-        val allCached = _allSongs.value
-        if (allCached.isNotEmpty()) {
-            for (id in ids) {
-                val found = allCached.find { it.id == id }
-                if (found != null && recentSongs.none { it.id == found.id }) {
-                    recentSongs.add(found)
-                }
-            }
-        }
-
-        // Second try: search through albums if allSongs cache didn't cover all IDs
-        if (recentSongs.size < ids.size) {
-            val albumSources = mutableListOf<List<Album>>()
-            repository.getRecentAlbums(20).onSuccess { albumSources.add(it) }
-            repository.getNewestAlbums(20).onSuccess { albumSources.add(it) }
-            repository.getFrequentAlbums(20).onSuccess { albumSources.add(it) }
-            for (albums in albumSources) {
-                for (album in albums) {
-                    if (recentSongs.size >= ids.size) break
-                    repository.getAlbum(album.id).onSuccess { detail ->
-                        detail.song?.forEach { song ->
-                            if (ids.contains(song.id) && recentSongs.none { it.id == song.id }) {
-                                recentSongs.add(song)
-                            }
-                        }
-                    }
-                }
-                if (recentSongs.size >= ids.size) break
-            }
-        }
-
-        val sorted = ids.mapNotNull { id -> recentSongs.find { it.id == id } }
-        if (sorted.isNotEmpty()) {
-            _recentPlayedSongs.value = sorted
-            // Save to cache for future fast loading
-            try {
-                settings.saveCachedRecentSongsJson(Gson().toJson(sorted.take(50)))
-            } catch (_: Exception) { }
-        }
-    }
-
-    fun loadLyrics(song: Song) {
-        _currentLyrics.value = null
-        viewModelScope.launch {
-            repository.getLyrics(song.artist, song.title).onSuccess { lyrics ->
-                _currentLyrics.value = lyrics
-            }
-        }
-    }
-
-    fun loadArtists() {
-        viewModelScope.launch {
-            repository.getArtists().onSuccess { _artists.value = it }
-        }
-    }
-
-    fun loadAlbums(type: String = "newest", callback: (List<Album>) -> Unit) {
-        viewModelScope.launch {
-            when (type) {
-                "newest" -> repository.getNewestAlbums(50)
-                "recent" -> repository.getRecentAlbums(50)
-                "random" -> repository.getRandomAlbums(50)
-                else -> repository.getNewestAlbums(50)
-            }.onSuccess { callback(it) }
-        }
-    }
-
-    fun loadAllAlbums(callback: (List<Album>) -> Unit) {
-        viewModelScope.launch {
-            val allAlbums = mutableListOf<Album>()
-            val seenIds = mutableSetOf<String>()
-            val types = listOf("newest", "recent", "frequent", "random", "starred", "alphabeticalByName")
-            for (type in types) {
-                var offset = 0
-                val pageSize = 500
-                while (true) {
-                    try {
-                        val albums = repository.getAlbumList2(type, pageSize, offset).getOrNull() ?: break
-                        for (album in albums) {
-                            if (seenIds.add(album.id)) {
-                                allAlbums.add(album)
-                            }
-                        }
-                        if (albums.size < pageSize) break
-                        offset += pageSize
-                    } catch (_: Exception) { break }
-                }
-            }
-            callback(allAlbums)
-        }
-    }
-
-    fun search(query: String) {
-        _searchQuery.value = query
-        if (query.isBlank()) {
-            _searchResults.value = null
-            return
-        }
-        viewModelScope.launch {
-            repository.search(query).onSuccess { _searchResults.value = it }
-        }
-    }
-
-    fun loadAlbumDetail(albumId: String) {
-        viewModelScope.launch {
-            repository.getAlbum(albumId).onSuccess { _currentAlbum.value = it }
-        }
-    }
-
-    fun loadArtistDetail(artistId: String) {
-        viewModelScope.launch {
-            repository.getArtist(artistId).onSuccess { _currentArtist.value = it }
-        }
-    }
-
-    fun loadPlaylistDetail(playlistId: String) {
-        viewModelScope.launch {
-            repository.getPlaylist(playlistId).onSuccess { _currentPlaylist.value = it }
-        }
-    }
-
-    fun playSong(song: Song, playlist: List<Song> = listOf(song)) {
-        playerManager.playSong(song, playlist)
-        viewModelScope.launch {
-            settings.addRecentPlay(song.id)
-            repository.scrobble(song.id)
-            // Cache the song object for recent plays
-            addSongToRecentCache(song)
-            // Refresh recent played songs
-            loadRecentPlayedSongs()
-        }
-    }
-
-    private suspend fun addSongToRecentCache(song: Song) {
-        try {
-            val cachedJson = settings.cachedRecentSongsJson.first()
-            val type = object : TypeToken<List<Song>>() {}.type
-            val existing: List<Song> = if (cachedJson.isNotBlank()) {
-                Gson().fromJson(cachedJson, type) ?: emptyList()
-            } else emptyList()
-            val updated = listOf(song) + existing.filter { it.id != song.id }
-            settings.saveCachedRecentSongsJson(Gson().toJson(updated.take(50)))
-        } catch (_: Exception) { }
-    }
-
-    fun refreshRandomAlbums() {
-        viewModelScope.launch {
-            repository.getRandomAlbums(10).onSuccess { _randomAlbums.value = it }
-        }
-    }
-
-    fun refreshDailySongs() {
-        viewModelScope.launch {
-            repository.getRandomSongs(4).onSuccess {
-                _dailySongs.value = it
-                val today = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date())
-                settings.saveCachedDailySongs(Gson().toJson(it), today)
-            }
-        }
-    }
-
-    fun loadAllSongs(showToast: Boolean = false) {
-        viewModelScope.launch {
-            _allSongsLoading.value = true
-            _allSongsLoadError.value = null
-
-            // Step 1: Load cached songs first for instant display
-            val cachedJson = settings.cachedAllSongsJson.first()
-            if (cachedJson.isNotBlank()) {
-                try {
-                    val type = object : TypeToken<List<Song>>() {}.type
-                    val cachedSongs: List<Song> = Gson().fromJson(cachedJson, type)
-                    if (cachedSongs.isNotEmpty()) {
-                        _allSongs.value = cachedSongs
-                        _allSongsLoading.value = false
-                    }
-                } catch (_: Exception) { }
-            }
-
-            // Step 2: Fetch fresh data from server
-            try {
-                repository.getAllSongs().onSuccess { serverSongs ->
-                    val cachedIds = _allSongs.value.map { it.id }.toSet()
-                    val newSongs = serverSongs.filter { it.id !in cachedIds }
-
-                    if (newSongs.isNotEmpty() && _allSongs.value.isNotEmpty()) {
-                        // Merge: keep cached + add new songs
-                        val merged = _allSongs.value + newSongs
-                        _allSongs.value = merged
-                        if (showToast) _toastMessage.value = "发现 ${newSongs.size} 首新歌曲"
-                        // Save merged list to cache
-                        saveSongsToCache(merged)
-                    } else if (_allSongs.value.isEmpty()) {
-                        _allSongs.value = serverSongs
-                        saveSongsToCache(serverSongs)
-                    } else {
-                        // No new songs, just update cache with latest server data
-                        saveSongsToCache(serverSongs)
-                        _allSongs.value = serverSongs
-                    }
-                    _allSongsLoading.value = false
-                }.onFailure {
-                    if (_allSongs.value.isEmpty()) {
-                        // No cache and server failed
-                        repository.getRandomSongs(500).onSuccess { songs ->
-                            _allSongs.value = songs
-                            saveSongsToCache(songs)
-                        }.onFailure { e ->
-                            _allSongsLoadError.value = e.message
-                        }
-                    }
-                    _allSongsLoading.value = false
-                }
-            } catch (e: Exception) {
-                if (_allSongs.value.isEmpty()) {
-                    _allSongsLoadError.value = e.message
-                }
-                _allSongsLoading.value = false
-            }
-        }
-    }
-
-    private suspend fun saveSongsToCache(songs: List<Song>) {
-        try {
-            val json = Gson().toJson(songs)
-            settings.saveCachedAllSongsJson(json)
-        } catch (_: Exception) { }
-    }
-
-    fun addToPlaylist(playlistId: String, songId: String, playlistOwner: String = "") {
-        viewModelScope.launch {
-            // Check if this is someone else's playlist
-            val currentUser = username.value
-            if (playlistOwner.isNotBlank() && playlistOwner != currentUser) {
-                _toastMessage.value = "不能添加歌曲到别人的歌单"
-                return@launch
-            }
-            repository.addToPlaylist(playlistId, songId).onSuccess {
-                _toastMessage.value = "已添加到歌单"
-                // Refresh playlist detail if viewing
-                repository.getPlaylist(playlistId).onSuccess { _currentPlaylist.value = it }
-            }.onFailure {
-                _toastMessage.value = "添加失败: ${it.message}"
-            }
-        }
-    }
-
-    fun removeFromPlaylist(playlistId: String, songIndex: Int) {
-        viewModelScope.launch {
-            repository.removeFromPlaylist(playlistId, songIndex).onSuccess {
-                _toastMessage.value = "已从歌单移除"
-                // Refresh playlist detail
-                repository.getPlaylist(playlistId).onSuccess { _currentPlaylist.value = it }
-                // Also refresh playlist list
-                repository.getPlaylists().onSuccess { _playlists.value = it }
-            }.onFailure {
-                _toastMessage.value = "移除失败: ${it.message}"
-            }
-        }
-    }
-
-    fun createPlaylistAndAddSong(name: String, songId: String, isPublic: Boolean = false) {
-        viewModelScope.launch {
-            val idToSend = songId.ifBlank { null }
-            repository.createPlaylist(name, idToSend, isPublic).onSuccess {
-                _toastMessage.value = "歌单创建成功"
-                // Refresh playlists after creating
-                repository.getPlaylists().onSuccess { _playlists.value = it }
-            }.onFailure {
-                _toastMessage.value = "创建失败: ${it.message}"
-            }
-        }
-    }
-
-    // Timer countdown job
-    private var countdownJob: kotlinx.coroutines.Job? = null
-
-    fun setTimerWithCountdown(minutes: Int) {
-        // Cancel any existing timer
-        cancelTimerWithCountdown()
-        // Also set alarm as backup (works even if app is killed)
-        playerManager.setTimer(minutes)
-        _timerRemainingSeconds.value = minutes * 60L
-        countdownJob = viewModelScope.launch {
-            while (_timerRemainingSeconds.value > 0) {
-                kotlinx.coroutines.delay(1000)
-                _timerRemainingSeconds.value = (_timerRemainingSeconds.value - 1).coerceAtLeast(0)
-            }
-            // Timer reached zero - force pause playback
-            // Use both methods for reliability
-            playerManager.forcePause()
-            // Also try direct player pause via the service
-            try {
-                playerManager.forcePause()
-            } catch (_: Exception) { }
-        }
-    }
-
-    fun cancelTimerWithCountdown() {
-        countdownJob?.cancel()
-        countdownJob = null
-        playerManager.cancelTimer()
-        _timerRemainingSeconds.value = 0
-    }
-
-    fun syncData() {
-        viewModelScope.launch {
-            _syncStatus.value = "同步中..."
-            try {
-                // Sync playlists
-                _syncStatus.value = "同步歌单 (1/4)..."
-                repository.getPlaylists().onSuccess { _playlists.value = it }
-
-                // Sync radio stations
-                repository.getInternetRadioStations().onSuccess { _radioStations.value = it }
-
-                // Sync artists
-                _syncStatus.value = "同步歌手 (2/4)..."
-                repository.getArtists().onSuccess { _artists.value = it }
-
-                // Sync starred
-                _syncStatus.value = "同步收藏 (3/4)..."
-                repository.getStarred().onSuccess { _starredSongs.value = it.songs }
-
-                // Refresh home data (daily songs and random albums only refresh on user click "换一批")
-                _syncStatus.value = "同步歌曲和专辑 (4/4)..."
-                repository.getNewestAlbums(10).onSuccess { _newestAlbums.value = it }
-
-                // Refresh server stats
-                repository.getServerStats().onSuccess { _serverStats.value = it }
-
-                // Refresh recent played
-                loadRecentPlayedSongs()
-
-                _syncStatus.value = "同步完成 ✓\n已同步: 歌单、歌手、收藏、专辑、歌曲、服务器统计"
-            } catch (e: Exception) {
-                _syncStatus.value = "同步失败: ${e.message}"
-            }
-            kotlinx.coroutines.delay(5000)
-            _syncStatus.value = ""
-        }
-    }
-
-    fun syncPlaylists() {
-        viewModelScope.launch {
-            repository.getPlaylists().onSuccess { _playlists.value = it }
-            repository.getStarred().onSuccess { _starredSongs.value = it.songs }
-        }
-    }
-
-    fun updatePlaylistPublic(playlistId: String, isPublic: Boolean) {
-        viewModelScope.launch {
-            repository.updatePlaylistPublic(playlistId, isPublic).onSuccess {
-                _toastMessage.value = if (isPublic) "歌单已设为公开" else "歌单已设为私密"
-                // Refresh playlist detail
-                repository.getPlaylist(playlistId).onSuccess { _currentPlaylist.value = it }
-                // Refresh playlist list
-                repository.getPlaylists().onSuccess { _playlists.value = it }
-            }.onFailure {
-                _toastMessage.value = "修改失败: ${it.message}"
-            }
-        }
-    }
-
-    // ============ Audiobook (Ting Reader) ============
-
-    // Ting Reader settings
-    val tingEnabled: StateFlow<Boolean> = settings.tingEnabled
-        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
-    val tingServerUrl: StateFlow<String> = settings.tingServerUrl
-        .stateIn(viewModelScope, SharingStarted.Eagerly, "")
-    val tingToken: StateFlow<String> = settings.tingToken
-        .stateIn(viewModelScope, SharingStarted.Eagerly, "")
-
-    // Audiobook data
-    private val _audiobooks = MutableStateFlow<List<TingBook>>(emptyList())
-    val audiobooks: StateFlow<List<TingBook>> = _audiobooks.asStateFlow()
-
-    private val _audiobookProgress = MutableStateFlow<Map<String, TingProgress>>(emptyMap())
-    val audiobookProgress: StateFlow<Map<String, TingProgress>> = _audiobookProgress.asStateFlow()
-
-    private val _audiobooksLoading = MutableStateFlow(false)
-    val audiobooksLoading: StateFlow<Boolean> = _audiobooksLoading.asStateFlow()
-
-    private val _audiobookSearchQuery = MutableStateFlow("")
-    val audiobookSearchQuery: StateFlow<String> = _audiobookSearchQuery.asStateFlow()
-
-    private val _audiobookSearchResults = MutableStateFlow<List<TingBook>>(emptyList())
-    val audiobookSearchResults: StateFlow<List<TingBook>> = _audiobookSearchResults.asStateFlow()
-
-    // Progress save throttle
-    private var lastProgressSaveTime = 0L
-
-    fun enableAudiobooks(serverUrl: String, username: String, password: String) {
-        viewModelScope.launch {
-            _isLoading.value = true
-            try {
-                tingRepository.configure(serverUrl, username, password)
-                val pingResult = tingRepository.ping()
-                if (pingResult.isFailure) {
-                    _toastMessage.value = "无法连接到有声书服务器: ${pingResult.exceptionOrNull()?.message}"
-                    _isLoading.value = false
-                    return@launch
-                }
-                val loginResult = tingRepository.login()
-                if (loginResult.isFailure) {
-                    _toastMessage.value = "有声书服务器登录失败: ${loginResult.exceptionOrNull()?.message}"
-                    _isLoading.value = false
-                    return@launch
-                }
-                settings.saveTingLogin(serverUrl, username, password)
-                settings.saveTingToken(tingRepository.getAuthToken().removePrefix("Bearer "))
-                audiobookPlayerManager.updateAuth(serverUrl, tingRepository.getAuthToken().removePrefix("Bearer "))
-                _toastMessage.value = "有声书服务器连接成功 ✓"
-                loadAudiobooks()
-            } catch (e: Exception) {
-                _toastMessage.value = "连接失败: ${e.message}"
-            } finally {
-                _isLoading.value = false
-            }
-        }
-    }
-
-    fun disableAudiobooks() {
-        viewModelScope.launch {
-            settings.clearTingLogin()
-            _audiobooks.value = emptyList()
-            _audiobookProgress.value = emptyMap()
+            settings.clearTingLogin(); _isLoggedIn.value = false
+            _allBooks.value = emptyList(); _bookProgress.value = emptyMap()
             audiobookPlayerManager.release()
-            _toastMessage.value = "已关闭有声书功能"
         }
     }
 
-    fun loadAudiobooks() {
+    fun loadBooks() {
         viewModelScope.launch {
-            // Check if we have saved credentials
-            val serverUrl = settings.tingServerUrl.first()
-            val username = settings.tingUsername.first()
-            val password = settings.tingPassword.first()
-            if (serverUrl.isBlank() || username.isBlank()) return@launch
-
-            _audiobooksLoading.value = true
+            val url = settings.tingServerUrl.first(); val user = settings.tingUsername.first(); val pass = settings.tingPassword.first()
+            if (url.isBlank() || user.isBlank()) return@launch
+            _booksLoading.value = true
             try {
-                tingRepository.configure(serverUrl, username, password)
-                val loginResult = tingRepository.login()
-                if (loginResult.isFailure) {
-                    _audiobooksLoading.value = false
-                    return@launch
-                }
-                settings.saveTingToken(tingRepository.getAuthToken().removePrefix("Bearer "))
-                audiobookPlayerManager.updateStreamAuth(serverUrl, tingRepository.getAuthToken().removePrefix("Bearer "))
-
+                tingRepository.configure(url, user, pass); tingRepository.login()
+                audiobookPlayerManager.updateStreamAuth(url, tingRepository.getAuthToken().removePrefix("Bearer "))
                 tingRepository.getBooks().onSuccess { books ->
-                    _audiobooks.value = books
-                }
-
-                // Load progress for all books
-                tingRepository.getRecentProgress().onSuccess { progressList ->
-                    val progressMap = mutableMapOf<String, TingProgress>()
-                    for (p in progressList) {
-                        progressMap[p.bookId] = p
+                    _allBooks.value = books
+                    val gs = mutableSetOf<String>()
+                    books.forEach { b ->
+                        b.genre?.split(",")?.forEach { if (it.isNotBlank()) gs.add(it.trim()) }
+                        b.tags?.split(",")?.forEach { if (it.isNotBlank()) gs.add(it.trim()) }
                     }
-                    _audiobookProgress.value = progressMap
+                    _genres.value = listOf("全部") + gs.sorted()
                 }
-            } catch (e: Exception) {
-                _toastMessage.value = "加载有声书失败: ${e.message}"
-            } finally {
-                _audiobooksLoading.value = false
-            }
+                tingRepository.getRecentProgress().onSuccess { _bookProgress.value = it.associateBy { p -> p.bookId } }
+                try { tingRepository.getStats().getOrNull()?.let { _stats.value = it } } catch (_: Exception) {}
+            } catch (e: Exception) { _toastMessage.value = "加载失败: ${e.message}" }
+            finally { _booksLoading.value = false }
         }
     }
 
-    fun searchAudiobooks(query: String) {
-        _audiobookSearchQuery.value = query
-        if (query.isBlank()) {
-            _audiobookSearchResults.value = emptyList()
-            return
-        }
-        viewModelScope.launch {
-            tingRepository.searchBooks(query).onSuccess {
-                _audiobookSearchResults.value = it
-            }
-        }
+    fun setSelectedGenre(genre: String) { _selectedGenre.value = genre }
+
+    fun getFilteredBooks(): List<TingBook> {
+        val g = _selectedGenre.value; val books = _allBooks.value
+        if (g == "全部") return books
+        return books.filter { (it.genre?.contains(g, true) == true) || (it.tags?.contains(g, true) == true) }
+    }
+
+    fun getRecentBooks(): List<TingBook> {
+        val pm = _bookProgress.value
+        return _allBooks.value.filter { pm.containsKey(it.id) }.sortedByDescending { pm[it.id]?.updatedAt ?: "" }.take(10)
+    }
+
+    fun searchBooks(query: String) {
+        _searchQuery.value = query
+        if (query.isBlank()) { _searchResults.value = emptyList(); return }
+        viewModelScope.launch { tingRepository.searchBooks(query).onSuccess { _searchResults.value = it } }
     }
 
     fun loadAndPlayAudiobook(bookId: String) {
         viewModelScope.launch {
             try {
-                // Ensure repo is configured
-                val serverUrl = settings.tingServerUrl.first()
-                val username = settings.tingUsername.first()
-                val password = settings.tingPassword.first()
-                if (serverUrl.isNotBlank() && username.isNotBlank()) {
-                    tingRepository.configure(serverUrl, username, password)
-                    tingRepository.login()
-                    audiobookPlayerManager.updateStreamAuth(serverUrl, tingRepository.getAuthToken().removePrefix("Bearer "))
+                val url = settings.tingServerUrl.first(); val user = settings.tingUsername.first(); val pass = settings.tingPassword.first()
+                if (url.isNotBlank() && user.isNotBlank()) {
+                    tingRepository.configure(url, user, pass); tingRepository.login()
+                    audiobookPlayerManager.updateStreamAuth(url, tingRepository.getAuthToken().removePrefix("Bearer "))
                 }
-
                 tingRepository.getChapters(bookId).onSuccess { chapters ->
-                    if (chapters.isEmpty()) {
-                        _toastMessage.value = "该书暂无章节"
-                        return@launch
+                    if (chapters.isEmpty()) { _toastMessage.value = "该书暂无章节"; return@launch }
+                    var startIdx = 0; var startMs = 0L
+                    tingRepository.getBookProgress(bookId).onSuccess { p ->
+                        if (p != null) { val i = chapters.indexOfFirst { it.id == p.chapterId }; if (i >= 0) { startIdx = i; startMs = (p.position * 1000).toLong() } }
                     }
-
-                    // Get saved progress
-                    var startChapterIndex = 0
-                    var startPositionMs = 0L
-                    tingRepository.getBookProgress(bookId).onSuccess { progress ->
-                        if (progress != null) {
-                            val savedChapterId = progress.chapterId
-                            val savedPosition = progress.position
-                            val idx = chapters.indexOfFirst { it.id == savedChapterId }
-                            if (idx >= 0) {
-                                startChapterIndex = idx
-                                startPositionMs = (savedPosition * 1000).toLong()
-                            }
-                        }
-                    }
-
-                    // Get book info
                     tingRepository.getBook(bookId).onSuccess { book ->
-                        audiobookPlayerManager.playBook(
-                            bookId = bookId,
-                            bookTitle = book.title,
-                            bookAuthor = book.author,
-                            coverUrl = book.coverUrl,
-                            chapters = chapters,
-                            startChapterIndex = startChapterIndex,
-                            startPositionMs = startPositionMs
-                        )
+                        audiobookPlayerManager.playBook(bookId, book.title, book.author, book.narrator ?: "", book.coverUrl, chapters, startIdx, startMs)
                     }
                 }
-            } catch (e: Exception) {
-                _toastMessage.value = "播放失败: ${e.message}"
-            }
+            } catch (e: Exception) { _toastMessage.value = "播放失败: ${e.message}" }
+        }
+    }
+
+    fun toggleFavorite(bookId: String) {
+        viewModelScope.launch {
+            val book = _allBooks.value.find { it.id == bookId } ?: return@launch
+            if (book.isFavorite) tingRepository.removeFavorite(bookId) else tingRepository.addFavorite(bookId)
+            loadBooks()
         }
     }
 
     fun setAudiobookTimer(minutes: Int) {
-        cancelTimerWithCountdown()
-        audiobookPlayerManager.forcePause()
-        // Use the same timer mechanism but for audiobook
-        _timerRemainingSeconds.value = minutes * 60L
+        cancelTimer(); _timerRemainingSeconds.value = minutes * 60L
         countdownJob = viewModelScope.launch {
-            while (_timerRemainingSeconds.value > 0) {
-                kotlinx.coroutines.delay(1000)
-                _timerRemainingSeconds.value = (_timerRemainingSeconds.value - 1).coerceAtLeast(0)
-            }
+            while (_timerRemainingSeconds.value > 0) { kotlinx.coroutines.delay(1000); _timerRemainingSeconds.value = (_timerRemainingSeconds.value - 1).coerceAtLeast(0) }
             audiobookPlayerManager.forcePause()
         }
     }
+
+    fun cancelTimer() { countdownJob?.cancel(); countdownJob = null; _timerRemainingSeconds.value = 0 }
+
+    fun checkForUpdate(silent: Boolean = true) {
+        viewModelScope.launch {
+            try {
+                val ctx = getApplication<android.app.Application>()
+                val code = if (android.os.Build.VERSION.SDK_INT >= 28) ctx.packageManager.getPackageInfo(ctx.packageName, 0).longVersionCode.toInt()
+                else @Suppress("DEPRECATION") ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionCode
+                val info = UpdateChecker.check(code)
+                if (info != null) _updateInfo.value = info
+                else if (!silent) _toastMessage.value = "当前已是最新版本 ✓"
+            } catch (e: Exception) { if (!silent) _toastMessage.value = "检查更新失败: ${e.message}" }
+        }
+    }
+
+    fun downloadUpdate() {
+        val info = _updateInfo.value ?: return
+        viewModelScope.launch {
+            _updateStatus.value = "正在下载..."
+            val ctx = getApplication<android.app.Application>()
+            val file = UpdateChecker.downloadApk(ctx, info.apkUrl) { _updateStatus.value = it }
+            if (file != null) { _updateStatus.value = "安装中..."; UpdateChecker.installApk(ctx, file); kotlinx.coroutines.delay(8000) }
+            _updateStatus.value = null; _updateInfo.value = null
+        }
+    }
+
+    fun dismissUpdate() { _updateInfo.value = null; _updateStatus.value = null }
 }

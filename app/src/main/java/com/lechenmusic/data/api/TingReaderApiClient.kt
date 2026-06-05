@@ -14,24 +14,18 @@ object TingReaderApiClient {
     fun getApi(baseUrl: String): TingReaderApi {
         val normalizedUrl = normalizeUrl(baseUrl)
         if (retrofit == null || currentBaseUrl != normalizedUrl) {
-            val logging = HttpLoggingInterceptor().apply {
-                level = HttpLoggingInterceptor.Level.BASIC
-            }
+            val logging = HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BASIC }
             val client = OkHttpClient.Builder()
                 .addInterceptor(logging)
                 .connectTimeout(30, TimeUnit.SECONDS)
                 .readTimeout(120, TimeUnit.SECONDS)
                 .writeTimeout(60, TimeUnit.SECONDS)
                 .build()
-
-            val gson = com.google.gson.GsonBuilder()
-                .setLenient()
-                .create()
-
+            val gson = com.google.gson.GsonBuilder().setLenient().create()
             retrofit = Retrofit.Builder()
                 .baseUrl(normalizedUrl)
                 .client(client)
-                .addConverterFactory(SafeJsonConverterFactory(GsonConverterFactory.create(gson)))
+                .addConverterFactory(GsonConverterFactory.create(gson))
                 .build()
             currentBaseUrl = normalizedUrl
         }
@@ -39,25 +33,19 @@ object TingReaderApiClient {
         return api!!
     }
 
-    fun getStreamUrl(baseUrl: String, chapterId: String, token: String): String {
-        val normalizedUrl = normalizeUrl(baseUrl)
-        return "${normalizedUrl}api/stream/$chapterId"
+    fun getStreamUrl(baseUrl: String, chapterId: String): String {
+        return "${normalizeUrl(baseUrl)}api/stream/$chapterId"
     }
 
-    fun getCoverProxyUrl(baseUrl: String, coverUrl: String, token: String): String {
-        val normalizedUrl = normalizeUrl(baseUrl)
+    fun getCoverProxyUrl(baseUrl: String, coverUrl: String): String {
         val encodedUrl = java.net.URLEncoder.encode(coverUrl, "UTF-8")
-        return "${normalizedUrl}api/proxy/cover?url=$encodedUrl"
+        return "${normalizeUrl(baseUrl)}api/proxy/cover?url=$encodedUrl"
     }
 
     private fun normalizeUrl(url: String): String {
         var normalized = url.trim()
-        if (!normalized.startsWith("http://") && !normalized.startsWith("https://")) {
-            normalized = "http://$normalized"
-        }
-        if (!normalized.endsWith("/")) {
-            normalized = "$normalized/"
-        }
+        if (!normalized.startsWith("http://") && !normalized.startsWith("https://")) normalized = "http://$normalized"
+        if (!normalized.endsWith("/")) normalized = "$normalized/"
         return normalized
     }
 }

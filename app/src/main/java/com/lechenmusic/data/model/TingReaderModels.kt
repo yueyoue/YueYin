@@ -2,24 +2,10 @@ package com.lechenmusic.data.model
 
 import com.google.gson.annotations.SerializedName
 
-// --- Auth ---
-data class TingLoginRequest(
-    val username: String,
-    val password: String
-)
+data class TingLoginRequest(val username: String, val password: String)
+data class TingLoginResponse(val user: TingUserInfo? = null, val token: String = "")
+data class TingUserInfo(val id: String = "", val username: String = "", val role: String = "")
 
-data class TingLoginResponse(
-    val user: TingUserInfo? = null,
-    val token: String = ""
-)
-
-data class TingUserInfo(
-    val id: String = "",
-    val username: String = "",
-    val role: String = ""
-)
-
-// --- Books ---
 data class TingBook(
     val id: String = "",
     val title: String = "",
@@ -39,7 +25,6 @@ data class TingBook(
     val path: String? = null
 )
 
-// --- Chapters ---
 data class TingChapter(
     val id: String = "",
     val bookId: String = "",
@@ -52,7 +37,6 @@ data class TingChapter(
     val createdAt: String? = null
 )
 
-// --- Progress ---
 data class TingProgress(
     val id: String? = null,
     @SerializedName("user_id") val userId: String? = null,
@@ -74,13 +58,11 @@ data class TingProgressRequest(
     val duration: Double
 )
 
-// --- Favorites ---
 data class TingFavorite(
     @SerializedName("book_id") val bookId: String = "",
     @SerializedName("created_at") val createdAt: String? = null
 )
 
-// --- Stats ---
 data class TingStats(
     @SerializedName("total_books") val totalBooks: Int = 0,
     @SerializedName("total_chapters") val totalChapters: Int = 0,

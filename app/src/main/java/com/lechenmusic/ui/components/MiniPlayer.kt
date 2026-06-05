@@ -5,93 +5,57 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.MusicNote
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.SkipNext
-import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.lechenmusic.data.model.Song
-import com.lechenmusic.player.MusicPlayerManager
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import com.lechenmusic.player.AudiobookPlayerManager
+import com.lechenmusic.ui.theme.*
 
 @Composable
-fun MiniPlayer(
-    playerManager: MusicPlayerManager,
-    serverUrl: String,
-    username: String,
-    password: String,
-    onClick: () -> Unit
-) {
-    val currentSong by playerManager.currentSong.collectAsState()
+fun MiniPlayer(playerManager: AudiobookPlayerManager, onClick: () -> Unit) {
+    val bookTitle by playerManager.currentBookTitle.collectAsState()
+    val currentChapter by playerManager.currentChapter.collectAsState()
     val isPlaying by playerManager.isPlaying.collectAsState()
-
-    val song = currentSong ?: return
+    val progress by playerManager.progress.collectAsState()
+    val bookCoverUrl by playerManager.currentBookCoverUrl.collectAsState()
+    val context = LocalContext.current
+    if (bookTitle.isBlank()) return
 
     Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 4.dp)
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(14.dp),
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.97f),
-        shadowElevation = 8.dp
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp).clickable(onClick = onClick),
+        shape = RoundedCornerShape(16.dp), color = Surface, shadowElevation = 4.dp,
+        border = androidx.compose.foundation.BorderStroke(1.dp, Border)
     ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            CoverImage(
-                coverArtId = song.coverArt ?: song.albumId,
-                serverUrl = serverUrl,
-                username = username,
-                password = password,
-                modifier = Modifier
-                    .size(44.dp)
-                    .clip(RoundedCornerShape(10.dp))
-            )
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(horizontal = 12.dp)
-            ) {
-                Text(
-                    text = song.title,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+        Column {
+            Row(modifier = Modifier.padding(10.dp, 10.dp, 14.dp, 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                AsyncImage(
+                    model = ImageRequest.Builder(context).data(bookCoverUrl).crossfade(true).memoryCacheKey("mini_cover").build(),
+                    contentDescription = null, modifier = Modifier.size(44.dp).clip(RoundedCornerShape(10.dp)), contentScale = ContentScale.Crop
                 )
-                Text(
-                    text = song.artist,
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(bookTitle, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(currentChapter?.title ?: "", fontSize = 11.sp, color = OnSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                IconButton(onClick = { playerManager.togglePlayPause() }, modifier = Modifier.size(40.dp)) {
+                    Icon(if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow, contentDescription = null, tint = OnSurface, modifier = Modifier.size(24.dp))
+                }
             }
-            IconButton(onClick = { playerManager.skipPrevious() }) {
-                Icon(Icons.Default.SkipPrevious, contentDescription = "上一曲", modifier = Modifier.size(24.dp))
+            Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp).height(3.dp).background(Border, RoundedCornerShape(2.dp))) {
+                Box(modifier = Modifier.fillMaxWidth(progress).height(3.dp).background(Primary, RoundedCornerShape(2.dp)))
             }
-            IconButton(onClick = { playerManager.togglePlayPause() }) {
-                Icon(
-                    if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                    contentDescription = if (isPlaying) "暂停" else "播放",
-                    modifier = Modifier.size(28.dp)
-                )
-            }
-            IconButton(onClick = { playerManager.skipNext() }) {
-                Icon(Icons.Default.SkipNext, contentDescription = "下一曲", modifier = Modifier.size(24.dp))
-            }
+            Spacer(modifier = Modifier.height(6.dp))
         }
     }
 }
