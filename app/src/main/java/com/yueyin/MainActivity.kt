@@ -89,7 +89,7 @@ fun YueYinMain(viewModel: MainViewModel) {
             Scaffold(snackbarHost = { SnackbarHost(snackHost) }, bottomBar = {
                 AnimatedVisibility(visible = showBar || (bookId.isNotBlank() && !isOnPlayer), enter = slideInVertically(initialOffsetY = { it }), exit = slideOutVertically(targetOffsetY = { it })) {
                     Column {
-                        if (bookId.isNotBlank() && !isOnPlayer && !isPlaying) MiniPlayer(playerManager = ap, onClick = { navController.navigate(Screen.Player.createRoute(bookId)) })
+                        if (bookId.isNotBlank() && !isOnPlayer) MiniPlayer(playerManager = ap, onClick = { navController.navigate(Screen.Player.createRoute(bookId)) })
                         if (showBar) NavigationBar(containerColor = androidx.compose.ui.graphics.Color.White.copy(0.88f)) {
                             tabs.forEach { t ->
                                 NavigationBarItem(icon = { Icon(t.icon, t.label) }, label = { Text(t.label, fontSize = 10.sp) }, selected = route == t.route, onClick = {
