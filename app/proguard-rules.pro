@@ -1,4 +1,4 @@
-# ProGuard rules for LeChenMusic
+# ProGuard rules for YueYin
 
 # Retrofit
 -keepattributes Signature
@@ -13,11 +13,10 @@
 -keepattributes Signature
 -keepattributes *Annotation*
 -keep class com.google.gson.** { *; }
--keep class com.lechenmusic.data.model.** { *; }
+-keep class com.yueyin.data.model.** { *; }
 -keep class * implements com.google.gson.TypeAdapterFactory
 -keep class * implements com.google.gson.JsonSerializer
 -keep class * implements com.google.gson.JsonDeserializer
-# Keep Gson @SerializedName fields
 -keepclassmembers,allowobfuscation class * {
     @com.google.gson.annotations.SerializedName <fields>;
 }
@@ -38,20 +37,18 @@
 # Media3
 -keep class androidx.media3.** { *; }
 
-# Keep the API client and all API-related classes
--keep class com.lechenmusic.data.api.** { *; }
+# Keep API client and related classes
+-keep class com.yueyin.data.api.** { *; }
 
-# Keep custom converter factory (SafeJsonConverterFactory)
+# Keep custom converter factory
 -keep class * extends retrofit2.Converter$Factory { *; }
 
-# Keep SSL trust-all related classes (anonymous X509TrustManager)
+# Keep SSL trust-all related classes
 -keep class * implements javax.net.ssl.X509TrustManager { *; }
 -keep class * implements javax.net.ssl.HostnameVerifier { *; }
 
-# Keep SubsonicResponse and all nested model classes
--keep class com.lechenmusic.data.model.SubsonicResponse { *; }
--keep class com.lechenmusic.data.model.SubsonicBody { *; }
--keep class com.lechenmusic.data.model.** { *; }
+# Keep all model classes
+-keep class com.yueyin.data.model.** { *; }
 
 # DataStore
 -keep class androidx.datastore.** { *; }

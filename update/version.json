@@ -1,0 +1,6 @@
+{
+    "versionCode": 10,
+    "versionName": "v1.1.0",
+    "apkUrl": "https://github.com/yueyoue/YueYin/releases/download/v1.1.0/app-release.apk",
+    "updateLog": "1. 修复收藏同步问题：服务器收藏数据正确同步到APP\n2. 下拉刷新优化：仅在页面最顶端才触发刷新\n3. 前进/后退15秒按钮替换为专业图标\n4. 锁屏播放器15秒按钮图标同步更新\n5. 版本号升级至 10 / 1.1.0"
+}
