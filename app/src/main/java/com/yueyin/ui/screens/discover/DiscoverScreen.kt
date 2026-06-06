@@ -10,8 +10,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
-import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -43,7 +41,6 @@ fun DiscoverScreen(viewModel: MainViewModel, onBookClick: (String) -> Unit, onSe
     val recentBooks = remember(allBooks, bookProgress) { viewModel.getRecentBooks() }
     val filteredBooks = remember(allBooks, selectedGenre) { viewModel.getFilteredBooks() }
     var allBooksViewMode by remember { mutableStateOf("grid") }
-    var isRefreshing by remember { mutableStateOf(false) }
 
     // Daily random recommendation based on day of year
     val dailyBook = remember(allBooks) {
@@ -54,19 +51,13 @@ fun DiscoverScreen(viewModel: MainViewModel, onBookClick: (String) -> Unit, onSe
         }
     }
 
-    PullToRefreshBox(
-        isRefreshing = isRefreshing,
-        onRefresh = {
-            isRefreshing = true
-            viewModel.loadBooks()
-            isRefreshing = false
-        },
-        modifier = Modifier.fillMaxSize()
-    ) {
+    Box(modifier = Modifier.fillMaxSize()) {
     LazyColumn(modifier = Modifier.fillMaxSize()) {
         item { Spacer(modifier = Modifier.height(48.dp)) }
         item {
-            Spacer(modifier = Modifier.height(8.dp))
+            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = { viewModel.loadBooks() }) { Icon(Icons.Default.Refresh, "刷新", tint = OnSurfaceVariant) }
+            }
         }
         if (dailyBook != null) {
             item {
@@ -147,7 +138,7 @@ fun DiscoverScreen(viewModel: MainViewModel, onBookClick: (String) -> Unit, onSe
         }
         item { Spacer(modifier = Modifier.height(100.dp)) }
     }
-    } // PullToRefreshBox
+    } // Box
 }
 
 @Composable

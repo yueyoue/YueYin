@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -35,9 +36,9 @@ import com.yueyin.ui.theme.*
 fun Seek15Icon(isForward: Boolean, modifier: Modifier = Modifier) {
     Box(modifier = modifier.size(28.dp), contentAlignment = Alignment.Center) {
         Icon(
-            imageVector = if (isForward) Icons.Default.RotateRight else Icons.Default.RotateLeft,
+            imageVector = Icons.Default.Autorenew,
             contentDescription = null,
-            modifier = Modifier.size(24.dp)
+            modifier = Modifier.size(24.dp).then(if (isForward) Modifier else Modifier.graphicsLayer { scaleX = -1f })
         )
         Text("15", fontSize = 7.sp, fontWeight = FontWeight.Black, color = Color.White, modifier = Modifier.offset(y = 1.dp))
     }
