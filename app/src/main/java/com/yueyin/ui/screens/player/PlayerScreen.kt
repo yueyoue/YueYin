@@ -7,10 +7,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -74,21 +76,56 @@ fun PlayerScreen(bookId: String, viewModel: MainViewModel, onBack: () -> Unit) {
     LaunchedEffect(bookId) { if (ap.currentBookId.value != bookId || ap.chapters.value.isEmpty()) viewModel.loadAndPlayAudiobook(bookId) }
 
     Box(modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(primaryColor.copy(alpha = 0.08f), MaterialTheme.colorScheme.background)))) {
-        Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+        Column(modifier = Modifier.fillMaxSize()) {
             // Top bar
             Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onBack) { Icon(Icons.Default.KeyboardArrowDown, "返回", modifier = Modifier.size(28.dp)) }
                 Text("正在播放", fontSize = 12.sp, color = OnSurfaceVariant, fontWeight = FontWeight.SemiBold)
                 Spacer(modifier = Modifier.size(48.dp))
             }
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-            // Cover
-            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                if (coverUrl != null) AsyncImage(model = ImageRequest.Builder(ctx).data(coverUrl).crossfade(true).memoryCacheKey("pc_$bookId").build(), contentDescription = title, modifier = Modifier.size(280.dp).clip(RoundedCornerShape(24.dp)), contentScale = ContentScale.Crop)
-                else Box(modifier = Modifier.size(280.dp).clip(RoundedCornerShape(24.dp)).background(Brush.linearGradient(listOf(Color(0xFF667eea), Color(0xFF764ba2)))), contentAlignment = Alignment.Center) { Icon(Icons.Default.MenuBook, null, tint = Color.White.copy(0.6f), modifier = Modifier.size(64.dp)) }
+            // Cover + Description pager (swipe left for description)
+            val hasDesc = bookDesc.isNotBlank()
+            val pagerState = rememberPagerState(pageCount = { if (hasDesc) 2 else 1 })
+
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.fillMaxWidth().height(280.dp),
+                contentPadding = PaddingValues(horizontal = 40.dp),
+                pageSpacing = 16.dp
+            ) { page ->
+                if (page == 0) {
+                    // Cover page
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        if (coverUrl != null) AsyncImage(model = ImageRequest.Builder(ctx).data(coverUrl).crossfade(true).memoryCacheKey("pc_$bookId").build(), contentDescription = title, modifier = Modifier.size(250.dp).clip(RoundedCornerShape(24.dp)), contentScale = ContentScale.Crop)
+                        else Box(modifier = Modifier.size(250.dp).clip(RoundedCornerShape(24.dp)).background(Brush.linearGradient(listOf(Color(0xFF667eea), Color(0xFF764ba2)))), contentAlignment = Alignment.Center) { Icon(Icons.Default.MenuBook, null, tint = Color.White.copy(0.6f), modifier = Modifier.size(64.dp)) }
+                    }
+                } else {
+                    // Description page
+                    Surface(modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(20.dp)), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)) {
+                        Column(modifier = Modifier.padding(20.dp).verticalScroll(rememberScrollState())) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.InfoOutline, null, tint = primaryColor, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("内容简介", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                            }
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(bookDesc, fontSize = 13.sp, color = OnSurfaceVariant, lineHeight = 22.sp)
+                        }
+                    }
+                }
             }
-            Spacer(modifier = Modifier.height(24.dp))
+
+            // Page indicators
+            if (hasDesc) {
+                Row(modifier = Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.Center) {
+                    repeat(2) { i ->
+                        Box(modifier = Modifier.padding(horizontal = 4.dp).size(if (i == pagerState.currentPage) 8.dp else 6.dp).clip(CircleShape).background(if (i == pagerState.currentPage) primaryColor else OnSurfaceVariant.copy(alpha = 0.3f)))
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(12.dp))
 
             // Book info
             Column(modifier = Modifier.padding(horizontal = 30.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -104,75 +141,43 @@ fun PlayerScreen(bookId: String, viewModel: MainViewModel, onBack: () -> Unit) {
                     }
                 }
             }
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Description
-            if (bookDesc.isNotBlank()) {
-                var descExpanded by remember { mutableStateOf(false) }
-                Column(modifier = Modifier.padding(horizontal = 30.dp)) {
-                    Text(
-                        text = bookDesc,
-                        fontSize = 12.sp,
-                        color = OnSurfaceVariant,
-                        maxLines = if (descExpanded) Int.MAX_VALUE else 2,
-                        overflow = TextOverflow.Ellipsis,
-                        lineHeight = 18.sp,
-                        modifier = Modifier.clickable { descExpanded = !descExpanded }
-                    )
-                    if (bookDesc.length > 60) {
-                        Text(
-                            text = if (descExpanded) "收起" else "展开简介",
-                            fontSize = 11.sp,
-                            color = primaryColor,
-                            fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.padding(top = 4.dp).clickable { descExpanded = !descExpanded }
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.height(12.dp))
-            }
+            Spacer(modifier = Modifier.weight(1f))
 
             // Progress bar
             Column(modifier = Modifier.padding(horizontal = 30.dp)) {
                 Slider(value = prog, onValueChange = { ap.seekToProgress(it) }, modifier = Modifier.fillMaxWidth(), colors = SliderDefaults.colors(thumbColor = primaryColor, activeTrackColor = primaryColor))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text(fmtTime(pos), fontSize = 11.sp, color = OnSurfaceVariant); Text("-${fmtTime(dur - pos)}", fontSize = 11.sp, color = OnSurfaceVariant) }
             }
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             // Controls: -15s | prev | play/pause | next | +15s
             Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
-                // 后退15秒
                 IconButton(onClick = { ap.rewind15s() }, modifier = Modifier.size(48.dp)) {
                     Surface(modifier = Modifier.size(46.dp), shape = CircleShape, color = MaterialTheme.colorScheme.surfaceVariant) {
                         Box(contentAlignment = Alignment.Center) { Seek15Icon(isForward = false) }
                     }
                 }
-                // 上一曲
                 IconButton(onClick = { ap.skipPrevious() }, modifier = Modifier.size(44.dp)) {
                     Icon(Icons.Default.SkipPrevious, "上一章", modifier = Modifier.size(28.dp), tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
                 }
-                // 播放/暂停
                 Surface(modifier = Modifier.size(68.dp), shape = CircleShape, color = primaryColor, shadowElevation = 8.dp) {
                     IconButton(onClick = { ap.togglePlayPause() }) {
                         Icon(if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow, null, tint = Color.White, modifier = Modifier.size(34.dp))
                     }
                 }
-                // 下一曲
                 IconButton(onClick = { ap.skipNext() }, modifier = Modifier.size(44.dp)) {
                     Icon(Icons.Default.SkipNext, "下一章", modifier = Modifier.size(28.dp), tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
                 }
-                // 前进15秒
                 IconButton(onClick = { ap.forward15s() }, modifier = Modifier.size(48.dp)) {
                     Surface(modifier = Modifier.size(46.dp), shape = CircleShape, color = MaterialTheme.colorScheme.surfaceVariant) {
                         Box(contentAlignment = Alignment.Center) { Seek15Icon(isForward = true) }
                     }
                 }
             }
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             // Bottom tools: speed | timer | chapters | favorite
-            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                // 倍速 - 弹出菜单
+            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp).padding(bottom = 16.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                 Box {
                     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { showSpeedMenu = true }.padding(8.dp)) {
                         Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surface, border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline)) {
@@ -190,17 +195,14 @@ fun PlayerScreen(bookId: String, viewModel: MainViewModel, onBack: () -> Unit) {
                         }
                     }
                 }
-                // 定时
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { showTimer = true }.padding(8.dp)) {
                     Icon(Icons.Default.Timer, "定时", tint = if (timerSec > 0) primaryColor else OnSurfaceVariant, modifier = Modifier.size(24.dp))
                     Text(if (timerSec > 0) "%d:%02d".format(timerSec / 60, timerSec % 60) else "定时", fontSize = 10.sp, color = if (timerSec > 0) primaryColor else OnSurfaceVariant)
                 }
-                // 章节
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { showChapters = true }.padding(8.dp)) {
                     Icon(Icons.Default.QueueMusic, "章节", tint = OnSurfaceVariant, modifier = Modifier.size(24.dp))
                     Text("章节 ${chIdx + 1}/${chapters.size}", fontSize = 10.sp, color = OnSurfaceVariant)
                 }
-                // 收藏
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { viewModel.toggleFavorite(bookId) }.padding(8.dp)) {
                     Icon(if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder, "收藏", tint = if (isFavorite) primaryColor else OnSurfaceVariant, modifier = Modifier.size(24.dp))
                     Text("收藏", fontSize = 10.sp, color = if (isFavorite) primaryColor else OnSurfaceVariant)
@@ -223,7 +225,6 @@ fun PlayerScreen(bookId: String, viewModel: MainViewModel, onBack: () -> Unit) {
                     Text(l, modifier = Modifier.fillMaxWidth().clickable { viewModel.setAudiobookTimer(m); showTimer = false }.padding(14.dp))
                 }
                 HorizontalDivider()
-                // 自定义时间
                 Row(modifier = Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                     OutlinedTextField(
                         value = customMinutes, onValueChange = { customMinutes = it.filter { c -> c.isDigit() } },
