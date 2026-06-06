@@ -1,6 +1,6 @@
 {
-    "versionCode": 5,
-    "versionName": "v1.0.5",
-    "apkUrl": "https://github.com/yueyoue/YueYin/releases/download/v1.0.5/app-release.apk",
-    "updateLog": "1. 播放页按钮顺序优化\n2. 前进后退15秒图标统一\n3. 书架显示收藏\n4. 首页视图切换\n5. 每日推荐随机更换\n6. 深色模式\n7. 搜索筛选\n8. 播放速度精简\n9. 定时精简\n10. 标题滚动显示"
+    "versionCode": 6,
+    "versionName": "v1.0.6",
+    "apkUrl": "https://github.com/yueyoue/YueYin/releases/download/v1.0.6/app-release.apk",
+    "updateLog": "1. 前进后退15秒图标统一\n2. 书架书籍数量显示修复\n3. 收藏按钮即时响应\n4. 首页标题移除\n5. 章节自动播放修复\n6. 播放页增加内容简介\n7. 进入播放页不再自动播放\n8. 分类标签使用流派字段\n9. 深色/浅色模式配色优化\n10. 图片缓存优化\n11. 首页书架下拉刷新\n12. 更新服务器优化"
 }

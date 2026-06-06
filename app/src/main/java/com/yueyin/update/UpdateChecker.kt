@@ -29,11 +29,23 @@ data class VersionFile(
 
 object UpdateChecker {
     private const val VERSION_URL = "http://ct.tthsdd.top/update"
+    private const val GITHUB_VERSION_URL = "https://raw.githubusercontent.com/yueyoue/YueYin/main/update/version.json"
 
     suspend fun check(currentVersionCode: Int): UpdateInfo? = withContext(Dispatchers.IO) {
-        try {
-            val conn = URL(VERSION_URL).openConnection() as HttpURLConnection
+        // Try custom server first, then fallback to GitHub
+        val result = tryServer(VERSION_URL, currentVersionCode)
+        if (result != null) return@withContext result
+        // Fallback to GitHub
+        tryServer(GITHUB_VERSION_URL, currentVersionCode)
+    }
+
+    private suspend fun tryServer(url: String, currentVersionCode: Int): UpdateInfo? {
+        return try {
+            val conn = URL(url).openConnection() as HttpURLConnection
             conn.connectTimeout = 10000; conn.readTimeout = 10000
+            conn.setRequestProperty("User-Agent", "YueYin-Android/1.0")
+            conn.setRequestProperty("Accept", "application/json")
+            if (conn.responseCode != 200) { conn.disconnect(); return null }
             val json = conn.inputStream.bufferedReader().readText(); conn.disconnect()
             val v = Gson().fromJson(json, VersionFile::class.java)
             if (v.versionCode > currentVersionCode) UpdateInfo(v.versionCode, v.versionName, v.apkUrl, v.updateLog) else null

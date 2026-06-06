@@ -47,6 +47,8 @@ class AudiobookPlayerManager(private val context: Context) {
     val currentBookNarrator: StateFlow<String> = _currentBookNarrator.asStateFlow()
     private val _currentBookCoverUrl = MutableStateFlow<String?>(null)
     val currentBookCoverUrl: StateFlow<String?> = _currentBookCoverUrl.asStateFlow()
+    private val _currentBookDescription = MutableStateFlow("")
+    val currentBookDescription: StateFlow<String> = _currentBookDescription.asStateFlow()
     private val _currentChapter = MutableStateFlow<TingChapter?>(null)
     val currentChapter: StateFlow<TingChapter?> = _currentChapter.asStateFlow()
     private val _chapters = MutableStateFlow<List<TingChapter>>(emptyList())
@@ -122,12 +124,35 @@ class AudiobookPlayerManager(private val context: Context) {
             .build().apply {
                 addListener(object : Player.Listener {
                     override fun onIsPlayingChanged(isPlaying: Boolean) { _isPlaying.value = isPlaying; updateNotification() }
-                    override fun onPlaybackStateChanged(playbackState: Int) { if (playbackState == Player.STATE_READY) _duration.value = duration }
+                    override fun onPlaybackStateChanged(playbackState: Int) {
+                        if (playbackState == Player.STATE_READY) _duration.value = duration
+                        // When a chapter finishes and player transitions to next, ensure playback continues
+                        if (playbackState == Player.STATE_ENDED) {
+                            player?.let { p ->
+                                if (p.hasNextMediaItem()) {
+                                    p.seekToNext()
+                                    p.play()
+                                }
+                            }
+                        }
+                    }
                     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                         updateCurrentFromPlayer(); updateNotification()
                         _currentChapter.value?.let { onChapterAutoAdvanced?.invoke(it) }
+                        // Ensure playback continues after auto-transition
+                        if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
+                            player?.play()
+                        }
                     }
-                    override fun onPlayerError(error: PlaybackException) { skipNext() }
+                    override fun onPlayerError(error: PlaybackException) {
+                        // On error, try to skip to next and continue playing
+                        player?.let { p ->
+                            if (p.hasNextMediaItem()) {
+                                p.seekToNext()
+                                p.play()
+                            }
+                        }
+                    }
                 })
             }
     }
@@ -142,15 +167,30 @@ class AudiobookPlayerManager(private val context: Context) {
         streamBaseUrl = baseUrl; authToken = token; currentAuthUrl = baseUrl; currentAuthToken = token
     }
 
-    fun playBook(bookId: String, bookTitle: String, bookAuthor: String, narrator: String, coverUrl: String?, chapters: List<TingChapter>, startChapterIndex: Int = 0, startPositionMs: Long = 0) {
+    fun playBook(bookId: String, bookTitle: String, bookAuthor: String, narrator: String, coverUrl: String?, description: String = "", chapters: List<TingChapter>, startChapterIndex: Int = 0, startPositionMs: Long = 0) {
         _currentBookId.value = bookId; _currentBookTitle.value = bookTitle; _currentBookAuthor.value = bookAuthor
-        _currentBookNarrator.value = narrator; _currentBookCoverUrl.value = coverUrl; _chapters.value = chapters
+        _currentBookNarrator.value = narrator; _currentBookCoverUrl.value = coverUrl; _currentBookDescription.value = description; _chapters.value = chapters
         player?.apply {
             val items = chapters.map { ch ->
                 MediaItem.Builder().setUri(getStreamUrl(ch.id)).setMediaId(ch.id)
                     .setMediaMetadata(MediaMetadata.Builder().setTitle(ch.title).setArtist(bookTitle).setAlbumTitle(bookTitle).build()).build()
             }
             setMediaItems(items, startChapterIndex, startPositionMs); prepare(); play()
+        }
+        _currentChapterIndex.value = startChapterIndex
+        if (startChapterIndex in chapters.indices) _currentChapter.value = chapters[startChapterIndex]
+        updateNotification()
+    }
+
+    fun loadBook(bookId: String, bookTitle: String, bookAuthor: String, narrator: String, coverUrl: String?, description: String = "", chapters: List<TingChapter>, startChapterIndex: Int = 0, startPositionMs: Long = 0) {
+        _currentBookId.value = bookId; _currentBookTitle.value = bookTitle; _currentBookAuthor.value = bookAuthor
+        _currentBookNarrator.value = narrator; _currentBookCoverUrl.value = coverUrl; _currentBookDescription.value = description; _chapters.value = chapters
+        player?.apply {
+            val items = chapters.map { ch ->
+                MediaItem.Builder().setUri(getStreamUrl(ch.id)).setMediaId(ch.id)
+                    .setMediaMetadata(MediaMetadata.Builder().setTitle(ch.title).setArtist(bookTitle).setAlbumTitle(bookTitle).build()).build()
+            }
+            setMediaItems(items, startChapterIndex, startPositionMs); prepare()
         }
         _currentChapterIndex.value = startChapterIndex
         if (startChapterIndex in chapters.indices) _currentChapter.value = chapters[startChapterIndex]

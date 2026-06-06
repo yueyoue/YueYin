@@ -37,7 +37,7 @@ fun SearchScreen(viewModel: MainViewModel, onBookClick: (String) -> Unit) {
     // Filter results by genre
     val filteredResults = remember(results, selectedGenre) {
         if (selectedGenre == "全部") results
-        else results.filter { (it.genre?.contains(selectedGenre, true) == true) || (it.tags?.contains(selectedGenre, true) == true) }
+        else results.filter { it.genre?.contains(selectedGenre, true) == true }
     }
 
     Column(modifier = Modifier.fillMaxSize()) {

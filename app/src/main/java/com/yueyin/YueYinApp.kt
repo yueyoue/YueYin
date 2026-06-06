@@ -24,9 +24,10 @@ class YueYinApp : Application(), ImageLoaderFactory {
 
     override fun newImageLoader(): ImageLoader {
         return ImageLoader.Builder(this)
-            .memoryCache { MemoryCache.Builder(this).maxSizePercent(0.25).build() }
-            .diskCache { DiskCache.Builder().directory(cacheDir.resolve("image_cache")).maxSizeBytes(256L * 1024 * 1024).build() }
+            .memoryCache { MemoryCache.Builder(this).maxSizePercent(0.30).build() }
+            .diskCache { DiskCache.Builder().directory(cacheDir.resolve("image_cache")).maxSizeBytes(512L * 1024 * 1024).build() }
             .crossfade(true)
+            .respectCacheHeaders(false)
             .build()
     }
 }

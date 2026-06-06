@@ -35,7 +35,7 @@ import com.yueyin.ui.theme.*
 fun Seek15Icon(isForward: Boolean, modifier: Modifier = Modifier) {
     Box(modifier = modifier.size(28.dp), contentAlignment = Alignment.Center) {
         Icon(
-            imageVector = if (isForward) Icons.Default.Forward else Icons.Default.Replay,
+            imageVector = if (isForward) Icons.Default.RotateRight else Icons.Default.RotateLeft,
             contentDescription = null,
             modifier = Modifier.size(24.dp)
         )
@@ -58,6 +58,7 @@ fun PlayerScreen(bookId: String, viewModel: MainViewModel, onBack: () -> Unit) {
     val author by ap.currentBookAuthor.collectAsState()
     val narrator by ap.currentBookNarrator.collectAsState()
     val coverUrl by ap.currentBookCoverUrl.collectAsState()
+    val bookDesc by ap.currentBookDescription.collectAsState()
     val timerSec by viewModel.timerRemainingSeconds.collectAsState()
     val playbackSpeed by ap.playbackSpeed.collectAsState()
     val isFavorite by viewModel.isBookFavorite(bookId).collectAsState()
@@ -65,10 +66,11 @@ fun PlayerScreen(bookId: String, viewModel: MainViewModel, onBack: () -> Unit) {
     var showChapters by remember { mutableStateOf(false) }
     var showSpeedMenu by remember { mutableStateOf(false) }
     val ctx = LocalContext.current
+    val primaryColor = MaterialTheme.colorScheme.primary
 
     LaunchedEffect(bookId) { if (ap.currentBookId.value != bookId || ap.chapters.value.isEmpty()) viewModel.loadAndPlayAudiobook(bookId) }
 
-    Box(modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Primary.copy(alpha = 0.08f), MaterialTheme.colorScheme.background)))) {
+    Box(modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(primaryColor.copy(alpha = 0.08f), MaterialTheme.colorScheme.background)))) {
         Column(modifier = Modifier.fillMaxSize()) {
             // Top bar
             Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -99,11 +101,37 @@ fun PlayerScreen(bookId: String, viewModel: MainViewModel, onBack: () -> Unit) {
                     }
                 }
             }
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Description
+            if (bookDesc.isNotBlank()) {
+                var descExpanded by remember { mutableStateOf(false) }
+                Column(modifier = Modifier.padding(horizontal = 30.dp)) {
+                    Text(
+                        text = bookDesc,
+                        fontSize = 12.sp,
+                        color = OnSurfaceVariant,
+                        maxLines = if (descExpanded) Int.MAX_VALUE else 2,
+                        overflow = TextOverflow.Ellipsis,
+                        lineHeight = 18.sp,
+                        modifier = Modifier.clickable { descExpanded = !descExpanded }
+                    )
+                    if (bookDesc.length > 60) {
+                        Text(
+                            text = if (descExpanded) "收起" else "展开简介",
+                            fontSize = 11.sp,
+                            color = primaryColor,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(top = 4.dp).clickable { descExpanded = !descExpanded }
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+            }
 
             // Progress bar
             Column(modifier = Modifier.padding(horizontal = 30.dp)) {
-                Slider(value = prog, onValueChange = { ap.seekToProgress(it) }, modifier = Modifier.fillMaxWidth(), colors = SliderDefaults.colors(thumbColor = Primary, activeTrackColor = Primary))
+                Slider(value = prog, onValueChange = { ap.seekToProgress(it) }, modifier = Modifier.fillMaxWidth(), colors = SliderDefaults.colors(thumbColor = primaryColor, activeTrackColor = primaryColor))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text(fmtTime(pos), fontSize = 11.sp, color = OnSurfaceVariant); Text("-${fmtTime(dur - pos)}", fontSize = 11.sp, color = OnSurfaceVariant) }
             }
             Spacer(modifier = Modifier.height(16.dp))
@@ -121,7 +149,7 @@ fun PlayerScreen(bookId: String, viewModel: MainViewModel, onBack: () -> Unit) {
                     Icon(Icons.Default.SkipPrevious, "上一章", modifier = Modifier.size(28.dp), tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
                 }
                 // 播放/暂停
-                Surface(modifier = Modifier.size(68.dp), shape = CircleShape, color = Primary, shadowElevation = 8.dp) {
+                Surface(modifier = Modifier.size(68.dp), shape = CircleShape, color = primaryColor, shadowElevation = 8.dp) {
                     IconButton(onClick = { ap.togglePlayPause() }) {
                         Icon(if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow, null, tint = Color.White, modifier = Modifier.size(34.dp))
                     }
@@ -152,17 +180,17 @@ fun PlayerScreen(bookId: String, viewModel: MainViewModel, onBack: () -> Unit) {
                     DropdownMenu(expanded = showSpeedMenu, onDismissRequest = { showSpeedMenu = false }) {
                         listOf(1.0f, 1.25f, 1.5f, 2.0f).forEach { speed ->
                             DropdownMenuItem(
-                                text = { Text("${speed}×", fontWeight = if (speed == playbackSpeed) FontWeight.Bold else FontWeight.Normal, color = if (speed == playbackSpeed) Primary else MaterialTheme.colorScheme.onSurface) },
+                                text = { Text("${speed}×", fontWeight = if (speed == playbackSpeed) FontWeight.Bold else FontWeight.Normal, color = if (speed == playbackSpeed) primaryColor else MaterialTheme.colorScheme.onSurface) },
                                 onClick = { ap.setSpeed(speed); showSpeedMenu = false },
-                                leadingIcon = { if (speed == playbackSpeed) Icon(Icons.Default.Check, null, tint = Primary, modifier = Modifier.size(18.dp)) }
+                                leadingIcon = { if (speed == playbackSpeed) Icon(Icons.Default.Check, null, tint = primaryColor, modifier = Modifier.size(18.dp)) }
                             )
                         }
                     }
                 }
                 // 定时
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { showTimer = true }.padding(8.dp)) {
-                    Icon(Icons.Default.Timer, "定时", tint = if (timerSec > 0) Primary else OnSurfaceVariant, modifier = Modifier.size(24.dp))
-                    Text(if (timerSec > 0) "%d:%02d".format(timerSec / 60, timerSec % 60) else "定时", fontSize = 10.sp, color = if (timerSec > 0) Primary else OnSurfaceVariant)
+                    Icon(Icons.Default.Timer, "定时", tint = if (timerSec > 0) primaryColor else OnSurfaceVariant, modifier = Modifier.size(24.dp))
+                    Text(if (timerSec > 0) "%d:%02d".format(timerSec / 60, timerSec % 60) else "定时", fontSize = 10.sp, color = if (timerSec > 0) primaryColor else OnSurfaceVariant)
                 }
                 // 章节
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { showChapters = true }.padding(8.dp)) {
@@ -171,8 +199,8 @@ fun PlayerScreen(bookId: String, viewModel: MainViewModel, onBack: () -> Unit) {
                 }
                 // 收藏
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { viewModel.toggleFavorite(bookId) }.padding(8.dp)) {
-                    Icon(if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder, "收藏", tint = if (isFavorite) Primary else OnSurfaceVariant, modifier = Modifier.size(24.dp))
-                    Text("收藏", fontSize = 10.sp, color = if (isFavorite) Primary else OnSurfaceVariant)
+                    Icon(if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder, "收藏", tint = if (isFavorite) primaryColor else OnSurfaceVariant, modifier = Modifier.size(24.dp))
+                    Text("收藏", fontSize = 10.sp, color = if (isFavorite) primaryColor else OnSurfaceVariant)
                 }
             }
         }
@@ -184,7 +212,7 @@ fun PlayerScreen(bookId: String, viewModel: MainViewModel, onBack: () -> Unit) {
         AlertDialog(onDismissRequest = { showTimer = false }, title = { Text("定时停止播放") }, text = {
             Column {
                 if (timerSec > 0) {
-                    Text("剩余: ${timerSec / 60}分${timerSec % 60}秒", color = Primary, fontWeight = FontWeight.Medium, modifier = Modifier.padding(bottom = 12.dp))
+                    Text("剩余: ${timerSec / 60}分${timerSec % 60}秒", color = primaryColor, fontWeight = FontWeight.Medium, modifier = Modifier.padding(bottom = 12.dp))
                     Text("取消定时", modifier = Modifier.fillMaxWidth().clickable { viewModel.cancelTimer(); showTimer = false }.padding(14.dp), color = Color.Red)
                     HorizontalDivider()
                 }
@@ -206,7 +234,7 @@ fun PlayerScreen(bookId: String, viewModel: MainViewModel, onBack: () -> Unit) {
                         onClick = { val m = customMinutes.toIntOrNull(); if (m != null && m > 0) { viewModel.setAudiobookTimer(m); showTimer = false } },
                         enabled = customMinutes.toIntOrNull()?.let { it > 0 } == true,
                         shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Primary),
+                        colors = ButtonDefaults.buttonColors(containerColor = primaryColor),
                         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)
                     ) { Text("确定") }
                 }
@@ -222,9 +250,9 @@ fun PlayerScreen(bookId: String, viewModel: MainViewModel, onBack: () -> Unit) {
             LazyColumn(modifier = Modifier.heightIn(max = 400.dp), contentPadding = PaddingValues(bottom = 16.dp)) {
                 itemsIndexed(chapters) { i, c ->
                     Row(modifier = Modifier.fillMaxWidth().clickable { ap.playChapter(i); showChapters = false }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("${i + 1}", fontSize = 13.sp, color = if (i == chIdx) Primary else OnSurfaceVariant, modifier = Modifier.width(36.dp), textAlign = TextAlign.Center)
-                        Column(modifier = Modifier.weight(1f).padding(start = 12.dp)) { Text(c.title, color = if (i == chIdx) Primary else MaterialTheme.colorScheme.onSurface, fontWeight = if (i == chIdx) FontWeight.SemiBold else FontWeight.Normal); Text(fmtDur(c.duration), fontSize = 12.sp, color = OnSurfaceVariant) }
-                        if (i == chIdx && isPlaying) Icon(Icons.Default.GraphicEq, null, tint = Primary, modifier = Modifier.size(20.dp))
+                        Text("${i + 1}", fontSize = 13.sp, color = if (i == chIdx) primaryColor else OnSurfaceVariant, modifier = Modifier.width(36.dp), textAlign = TextAlign.Center)
+                        Column(modifier = Modifier.weight(1f).padding(start = 12.dp)) { Text(c.title, color = if (i == chIdx) primaryColor else MaterialTheme.colorScheme.onSurface, fontWeight = if (i == chIdx) FontWeight.SemiBold else FontWeight.Normal); Text(fmtDur(c.duration), fontSize = 12.sp, color = OnSurfaceVariant) }
+                        if (i == chIdx && isPlaying) Icon(Icons.Default.GraphicEq, null, tint = primaryColor, modifier = Modifier.size(20.dp))
                     }
                 }
             }

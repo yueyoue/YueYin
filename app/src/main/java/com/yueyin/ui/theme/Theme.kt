@@ -18,10 +18,10 @@ private val LightColorScheme = lightColorScheme(
 )
 
 private val DarkColorScheme = darkColorScheme(
-    primary = Primary, onPrimary = Color.White, primaryContainer = PrimaryLight,
+    primary = DarkPrimary, onPrimary = Color.White, primaryContainer = PrimaryLight,
     background = DarkBackground, surface = DarkSurface, surfaceVariant = DarkSurfaceVariant,
     onBackground = DarkOnBackground, onSurface = DarkOnSurface, onSurfaceVariant = DarkOnSurfaceVariant,
-    outline = DarkBorder, error = Primary,
+    outline = DarkBorder, error = DarkPrimary,
     surfaceTint = DarkSurface,
     tertiaryContainer = DarkElevated
 )

@@ -42,7 +42,7 @@ interface TingReaderApi {
     suspend fun searchBooks(@Header("Authorization") token: String, @Query("q") query: String): List<TingBook>
 
     @GET("/api/stats")
-    suspend fun getStats(): TingStats
+    suspend fun getStats(@Header("Authorization") token: String): TingStats
 
     @GET("/api/proxy/cover")
     suspend fun proxyCover(@Header("Authorization") token: String, @Query("url") url: String): ResponseBody

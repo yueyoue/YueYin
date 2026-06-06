@@ -19,7 +19,8 @@ val Green = Color(0xFF34C759)
 val Blue = Color(0xFF007AFF)
 val Orange = Color(0xFFFF9500)
 
-// Dark theme colors
+// Dark theme colors - based on UI reference
+val DarkPrimary = Color(0xFFFF4757)
 val DarkBackground = Color(0xFF0A0A0A)
 val DarkSurface = Color(0xFF141414)
 val DarkSurfaceVariant = Color(0xFF1C1C1E)
@@ -29,3 +30,5 @@ val DarkOnSurface = Color(0xFFF5F5F7)
 val DarkOnSurfaceVariant = Color(0xFF8E8E93)
 val DarkBorder = Color(0xFF2C2C2E)
 val DarkBorderLight = Color(0xFF1C1C1E)
+val DarkGreen = Color(0xFF30D158)
+val DarkOrange = Color(0xFFFF9F0A)

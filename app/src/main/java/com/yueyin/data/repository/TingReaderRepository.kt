@@ -23,7 +23,7 @@ class TingReaderRepository {
     }
     fun getAuthToken(): String = "Bearer $token"
 
-    suspend fun ping(): Result<Unit> = try { api!!.getStats(); Result.success(Unit) } catch (e: Exception) {
+    suspend fun ping(): Result<Unit> = try { api!!.getStats(""); Result.success(Unit) } catch (e: Exception) {
         Result.failure(Exception(when {
             e.message?.contains("timeout") == true -> "连接超时"
             e.message?.contains("Unable to resolve host") == true -> "无法解析服务器地址"
@@ -51,5 +51,5 @@ class TingReaderRepository {
     suspend fun addFavorite(bookId: String): Result<Unit> = try { api!!.addFavorite("Bearer $token", bookId); Result.success(Unit) } catch (e: Exception) { Result.failure(e) }
     suspend fun removeFavorite(bookId: String): Result<Unit> = try { api!!.removeFavorite("Bearer $token", bookId); Result.success(Unit) } catch (e: Exception) { Result.failure(e) }
     suspend fun searchBooks(query: String): Result<List<TingBook>> = try { Result.success(api!!.searchBooks("Bearer $token", query)) } catch (e: Exception) { Result.failure(e) }
-    suspend fun getStats(): Result<TingStats> = try { Result.success(api!!.getStats()) } catch (e: Exception) { Result.failure(e) }
+    suspend fun getStats(): Result<TingStats> = try { Result.success(api!!.getStats("Bearer $token")) } catch (e: Exception) { Result.failure(e) }
 }

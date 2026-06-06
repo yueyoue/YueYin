@@ -153,7 +153,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     val gs = mutableSetOf<String>()
                     books.forEach { b ->
                         b.genre?.split(",")?.forEach { if (it.isNotBlank()) gs.add(it.trim()) }
-                        b.tags?.split(",")?.forEach { if (it.isNotBlank()) gs.add(it.trim()) }
                     }
                     _genres.value = listOf("全部") + gs.sorted()
                 }
@@ -169,7 +168,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun getFilteredBooks(): List<TingBook> {
         val g = _selectedGenre.value; val books = _allBooks.value
         if (g == "全部") return books
-        return books.filter { (it.genre?.contains(g, true) == true) || (it.tags?.contains(g, true) == true) }
+        return books.filter { it.genre?.contains(g, true) == true }
     }
 
     fun getRecentBooks(): List<TingBook> {
@@ -186,6 +185,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun loadAndPlayAudiobook(bookId: String) {
         viewModelScope.launch {
             try {
+                // If same book is already loaded, don't reload
+                if (audiobookPlayerManager.currentBookId.value == bookId && audiobookPlayerManager.isBookLoaded()) {
+                    return@launch
+                }
                 val url = settings.tingServerUrl.first(); val user = settings.tingUsername.first(); val pass = settings.tingPassword.first()
                 if (url.isNotBlank() && user.isNotBlank()) {
                     tingRepository.configure(url, user, pass); tingRepository.login()
@@ -198,7 +201,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         if (p != null) { val i = chapters.indexOfFirst { it.id == p.chapterId }; if (i >= 0) { startIdx = i; startMs = (p.position * 1000).toLong() } }
                     }
                     tingRepository.getBook(bookId).onSuccess { book ->
-                        audiobookPlayerManager.playBook(bookId, book.title, book.author, book.narrator ?: "", book.coverUrl, chapters, startIdx, startMs)
+                        audiobookPlayerManager.loadBook(bookId, book.title, book.author, book.narrator ?: "", book.coverUrl, book.description ?: "", chapters, startIdx, startMs)
                     }
                 }
             } catch (e: Exception) { _toastMessage.value = "播放失败: ${e.message}" }
@@ -208,7 +211,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun toggleFavorite(bookId: String) {
         viewModelScope.launch {
             val book = _allBooks.value.find { it.id == bookId } ?: return@launch
+            val newFav = !book.isFavorite
+            // Optimistic update - immediately update local state
+            _allBooks.value = _allBooks.value.map { if (it.id == bookId) it.copy(isFavorite = newFav) else it }
+            // Then sync with server
             if (book.isFavorite) tingRepository.removeFavorite(bookId) else tingRepository.addFavorite(bookId)
+            // Reload to sync with server
             loadBooks()
         }
     }

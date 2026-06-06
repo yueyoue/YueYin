@@ -11,6 +11,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -38,6 +40,7 @@ fun LibraryScreen(viewModel: MainViewModel, onBookClick: (String) -> Unit) {
     var viewMode by remember { mutableStateOf("grid") }
     var filterMode by remember { mutableStateOf("全部") }
     var showAllBooks by remember { mutableStateOf(false) }
+    var isRefreshing by remember { mutableStateOf(false) }
     val filtered = remember(allBooks, bookProgress, filterMode) {
         when (filterMode) {
             "在听" -> allBooks.filter { bookProgress.containsKey(it.id) }
@@ -52,6 +55,15 @@ fun LibraryScreen(viewModel: MainViewModel, onBookClick: (String) -> Unit) {
         return
     }
 
+    PullToRefreshBox(
+        isRefreshing = isRefreshing,
+        onRefresh = {
+            isRefreshing = true
+            viewModel.loadBooks()
+            isRefreshing = false
+        },
+        modifier = Modifier.fillMaxSize()
+    ) {
     Column(modifier = Modifier.fillMaxSize()) {
         Spacer(modifier = Modifier.height(48.dp))
         Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -107,6 +119,7 @@ fun LibraryScreen(viewModel: MainViewModel, onBookClick: (String) -> Unit) {
             }
         }
     }
+    } // PullToRefreshBox
 }
 
 @Composable
@@ -115,7 +128,7 @@ private fun AllBooksPage(viewModel: MainViewModel, allBooks: List<TingBook>, boo
     var selectedCategory by remember { mutableStateOf("全部") }
     val filteredBooks = remember(allBooks, selectedCategory) {
         if (selectedCategory == "全部") allBooks
-        else allBooks.filter { (it.genre?.contains(selectedCategory, true) == true) || (it.tags?.contains(selectedCategory, true) == true) }
+        else allBooks.filter { it.genre?.contains(selectedCategory, true) == true }
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
