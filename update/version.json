@@ -1,6 +1,6 @@
 {
-    "versionCode": 7,
-    "versionName": "v1.0.7",
-    "apkUrl": "https://github.com/yueyoue/YueYin/releases/download/v1.0.7/app-release.apk",
-    "updateLog": "1. 修复编译错误\n2. 书架书籍数量显示修复\n3. 收藏按钮对接服务器收藏功能\n4. 锁屏播放器章节切换修复\n5. 下拉刷新全页下移体验优化\n6. 通知栏增加上/下一章按钮\n7. 版本号升级至 v1.0.7"
+    "versionCode": 9,
+    "versionName": "v1.0.9",
+    "apkUrl": "https://github.com/yueyoue/YueYin/releases/download/v1.0.9/app-release.apk",
+    "updateLog": "1. 修复收藏按钮同步问题，退出APP后收藏状态正确显示\n2. 下拉刷新优化：仅在页面最顶端才触发\n3. 锁屏播放器增加前进/后退15秒按钮\n4. 修复播放页封面图右侧显示内容简介的问题\n5. 内容简介图标更换\n6. 15秒快进快退按钮增加15标识\n7. 版本号更新至 v1.0.9\n8. 版本号升级至 9 / 1.0.9"
 }

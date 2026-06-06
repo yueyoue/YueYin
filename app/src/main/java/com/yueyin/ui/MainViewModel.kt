@@ -242,13 +242,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 _allBooks.value = _allBooks.value.map { if (it.id == bookId) it.copy(isFavorite = !newFav) else it }
                 _favoriteBookIds.value = if (!newFav) _favoriteBookIds.value + bookId else _favoriteBookIds.value - bookId
                 _toastMessage.value = "收藏操作失败: ${result.exceptionOrNull()?.message}"
+            } else {
+                // Re-sync favorites from server to ensure consistency
+                tingRepository.getFavorites().onSuccess { favs ->
+                    val serverFavIds = favs.map { it.bookId }.toSet()
+                    _favoriteBookIds.value = serverFavIds
+                    _allBooks.value = _allBooks.value.map { it.copy(isFavorite = serverFavIds.contains(it.id)) }
+                }
             }
         }
     }
 
     fun isBookFavorite(bookId: String): StateFlow<Boolean> {
-        return _favoriteBookIds.map { ids -> ids.contains(bookId) }
-            .stateIn(viewModelScope, SharingStarted.Eagerly, _favoriteBookIds.value.contains(bookId))
+        return _allBooks.map { books -> books.find { it.id == bookId }?.isFavorite ?: false }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
     }
 
     fun setAudiobookTimer(minutes: Int) {

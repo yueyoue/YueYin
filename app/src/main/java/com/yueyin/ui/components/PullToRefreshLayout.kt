@@ -58,11 +58,14 @@ fun PullToRefreshLayout(
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
                 if (isRefreshing) return Offset.Zero
+                // Reset accumulated pull when user scrolls up (not at top anymore)
+                if (available.y < 0) {
+                    accumulatedPull = 0f
+                }
                 // If pulling down and we have offset, consume upward scroll first
                 if (pullOffset > 0 && available.y < 0) {
                     val consumed = min(pullOffset, -available.y)
                     pullOffset -= consumed
-                    accumulatedPull = (accumulatedPull - consumed).coerceAtLeast(0f)
                     return Offset(0f, -consumed)
                 }
                 return Offset.Zero

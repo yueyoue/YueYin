@@ -44,7 +44,7 @@ fun Seek15Icon(isForward: Boolean, modifier: Modifier = Modifier) {
             contentDescription = null,
             modifier = Modifier.size(24.dp).then(if (isForward) Modifier else Modifier.graphicsLayer { scaleX = -1f })
         )
-        Text("15", fontSize = 7.sp, fontWeight = FontWeight.Black, color = Color.White, modifier = Modifier.offset(y = 1.dp))
+        Text("15", fontSize = 8.sp, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.offset(y = 1.dp))
     }
 }
 
@@ -91,9 +91,7 @@ fun PlayerScreen(bookId: String, viewModel: MainViewModel, onBack: () -> Unit) {
 
             HorizontalPager(
                 state = pagerState,
-                modifier = Modifier.fillMaxWidth().height(280.dp),
-                contentPadding = PaddingValues(horizontal = 40.dp),
-                pageSpacing = 16.dp
+                modifier = Modifier.fillMaxWidth().height(280.dp)
             ) { page ->
                 if (page == 0) {
                     // Cover page
@@ -106,7 +104,7 @@ fun PlayerScreen(bookId: String, viewModel: MainViewModel, onBack: () -> Unit) {
                     Surface(modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(20.dp)), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)) {
                         Column(modifier = Modifier.padding(20.dp).verticalScroll(rememberScrollState())) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.Info, null, tint = primaryColor, modifier = Modifier.size(16.dp))
+                                Icon(Icons.Default.AutoStories, null, tint = primaryColor, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text("内容简介", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                             }

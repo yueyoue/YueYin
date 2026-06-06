@@ -265,7 +265,17 @@ class AudiobookPlayerManager(private val context: Context) {
         session.setMetadata(meta)
 
         val state = PlaybackStateCompat.Builder()
-            .setActions(PlaybackStateCompat.ACTION_PLAY or PlaybackStateCompat.ACTION_PAUSE or PlaybackStateCompat.ACTION_PLAY_PAUSE or PlaybackStateCompat.ACTION_SKIP_TO_NEXT or PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS or PlaybackStateCompat.ACTION_FAST_FORWARD or PlaybackStateCompat.ACTION_REWIND)
+            .setActions(
+                PlaybackStateCompat.ACTION_PLAY or
+                PlaybackStateCompat.ACTION_PAUSE or
+                PlaybackStateCompat.ACTION_PLAY_PAUSE or
+                PlaybackStateCompat.ACTION_SKIP_TO_NEXT or
+                PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS or
+                PlaybackStateCompat.ACTION_FAST_FORWARD or
+                PlaybackStateCompat.ACTION_REWIND
+            )
+            .addCustomAction(PlaybackStateCompat.CustomAction.Builder("REWIND_15", "后退15秒", R.drawable.ic_notif_rewind).build())
+            .addCustomAction(PlaybackStateCompat.CustomAction.Builder("FORWARD_15", "前进15秒", R.drawable.ic_notif_forward).build())
             .setState(if (_isPlaying.value) PlaybackStateCompat.STATE_PLAYING else PlaybackStateCompat.STATE_PAUSED, _currentPosition.value, 1.0f)
             .build()
         session.setPlaybackState(state)
