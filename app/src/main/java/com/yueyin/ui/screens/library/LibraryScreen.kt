@@ -27,6 +27,7 @@ import coil.request.ImageRequest
 import com.yueyin.data.model.TingBook
 import com.yueyin.data.model.TingProgress
 import com.yueyin.ui.MainViewModel
+import com.yueyin.ui.components.PullToRefreshLayout
 import com.yueyin.ui.theme.*
 
 @Composable
@@ -53,12 +54,19 @@ fun LibraryScreen(viewModel: MainViewModel, onBookClick: (String) -> Unit) {
         return
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    PullToRefreshLayout(
+        isRefreshing = isRefreshing,
+        onRefresh = {
+            isRefreshing = true
+            viewModel.loadBooks()
+            isRefreshing = false
+        },
+        modifier = Modifier.fillMaxSize()
+    ) {
     Column(modifier = Modifier.fillMaxSize()) {
         Spacer(modifier = Modifier.height(48.dp))
-        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("📚 书架", fontSize = 28.sp, fontWeight = FontWeight.Black)
-            IconButton(onClick = { viewModel.loadBooks() }) { Icon(Icons.Default.Refresh, "刷新", tint = OnSurfaceVariant) }
         }
         Surface(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp), shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline)) {
             Row(modifier = Modifier.padding(vertical = 14.dp)) {

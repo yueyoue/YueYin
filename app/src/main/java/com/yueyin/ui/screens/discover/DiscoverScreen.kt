@@ -27,6 +27,7 @@ import coil.request.ImageRequest
 import com.yueyin.data.model.TingBook
 import com.yueyin.data.model.TingProgress
 import com.yueyin.ui.MainViewModel
+import com.yueyin.ui.components.PullToRefreshLayout
 import com.yueyin.ui.theme.*
 
 @Composable
@@ -41,6 +42,7 @@ fun DiscoverScreen(viewModel: MainViewModel, onBookClick: (String) -> Unit, onSe
     val recentBooks = remember(allBooks, bookProgress) { viewModel.getRecentBooks() }
     val filteredBooks = remember(allBooks, selectedGenre) { viewModel.getFilteredBooks() }
     var allBooksViewMode by remember { mutableStateOf("grid") }
+    var isRefreshing by remember { mutableStateOf(false) }
 
     // Daily random recommendation based on day of year
     val dailyBook = remember(allBooks) {
@@ -51,13 +53,19 @@ fun DiscoverScreen(viewModel: MainViewModel, onBookClick: (String) -> Unit, onSe
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    PullToRefreshLayout(
+        isRefreshing = isRefreshing,
+        onRefresh = {
+            isRefreshing = true
+            viewModel.loadBooks()
+            isRefreshing = false
+        },
+        modifier = Modifier.fillMaxSize()
+    ) {
     LazyColumn(modifier = Modifier.fillMaxSize()) {
         item { Spacer(modifier = Modifier.height(48.dp)) }
         item {
-            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = { viewModel.loadBooks() }) { Icon(Icons.Default.Refresh, "刷新", tint = OnSurfaceVariant) }
-            }
+            Spacer(modifier = Modifier.height(8.dp))
         }
         if (dailyBook != null) {
             item {
