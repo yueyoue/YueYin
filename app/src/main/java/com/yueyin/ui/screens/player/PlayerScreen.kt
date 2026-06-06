@@ -106,7 +106,7 @@ fun PlayerScreen(bookId: String, viewModel: MainViewModel, onBack: () -> Unit) {
                     Surface(modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(20.dp)), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)) {
                         Column(modifier = Modifier.padding(20.dp).verticalScroll(rememberScrollState())) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Outlined.Info, null, tint = primaryColor, modifier = Modifier.size(16.dp))
+                                Icon(Icons.Default.Info, null, tint = primaryColor, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text("内容简介", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                             }
