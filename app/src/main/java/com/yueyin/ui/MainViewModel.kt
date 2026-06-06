@@ -253,9 +253,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    // Single source of truth for favorite status - derived from _allBooks
+    val favoriteStatusMap: StateFlow<Map<String, Boolean>> = _allBooks.map { books ->
+        books.associate { it.id to it.isFavorite }
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
+
     fun isBookFavorite(bookId: String): StateFlow<Boolean> {
-        return _allBooks.map { books -> books.find { it.id == bookId }?.isFavorite ?: false }
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+        return favoriteStatusMap.map { it[bookId] ?: false }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, _allBooks.value.find { it.id == bookId }?.isFavorite ?: false)
     }
 
     fun setAudiobookTimer(minutes: Int) {

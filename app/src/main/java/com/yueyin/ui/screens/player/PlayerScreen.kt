@@ -101,7 +101,7 @@ fun PlayerScreen(bookId: String, viewModel: MainViewModel, onBack: () -> Unit) {
                     }
                 } else {
                     // Description page
-                    Surface(modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(20.dp)), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)) {
+                    Surface(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp).clip(RoundedCornerShape(20.dp)), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)) {
                         Column(modifier = Modifier.padding(20.dp).verticalScroll(rememberScrollState())) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(Icons.Default.AutoStories, null, tint = primaryColor, modifier = Modifier.size(16.dp))

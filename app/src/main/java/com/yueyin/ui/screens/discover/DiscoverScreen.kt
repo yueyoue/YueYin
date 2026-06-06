@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -42,6 +43,7 @@ fun DiscoverScreen(viewModel: MainViewModel, onBookClick: (String) -> Unit, onSe
     val recentBooks = remember(allBooks, bookProgress) { viewModel.getRecentBooks() }
     val filteredBooks = remember(allBooks, selectedGenre) { viewModel.getFilteredBooks() }
     var allBooksViewMode by remember { mutableStateOf("grid") }
+    val listState = rememberLazyListState()
 
     // Daily random recommendation based on day of year
     val dailyBook = remember(allBooks) {
@@ -55,9 +57,10 @@ fun DiscoverScreen(viewModel: MainViewModel, onBookClick: (String) -> Unit, onSe
     PullToRefreshLayout(
         isRefreshing = booksLoading,
         onRefresh = { viewModel.loadBooks() },
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier.fillMaxSize(),
+        listState = listState
     ) {
-    LazyColumn(modifier = Modifier.fillMaxSize()) {
+    LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
         item { Spacer(modifier = Modifier.height(48.dp)) }
         item {
             Spacer(modifier = Modifier.height(8.dp))

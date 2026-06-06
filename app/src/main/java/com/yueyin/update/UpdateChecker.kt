@@ -32,24 +32,26 @@ object UpdateChecker {
     private const val GITHUB_VERSION_URL = "https://raw.githubusercontent.com/yueyoue/YueYin/main/update/version.json"
 
     suspend fun check(currentVersionCode: Int): UpdateInfo? = withContext(Dispatchers.IO) {
-        // Try custom server first, then fallback to GitHub
-        val result = tryServer(VERSION_URL, currentVersionCode)
-        if (result != null) return@withContext result
-        // Fallback to GitHub
-        tryServer(GITHUB_VERSION_URL, currentVersionCode)
+        // Try GitHub first (more reliable), then custom server as fallback
+        val github = tryServer(GITHUB_VERSION_URL, currentVersionCode)
+        if (github != null) return@withContext github
+        // Fallback to custom server
+        tryServer(VERSION_URL, currentVersionCode)
     }
 
     private suspend fun tryServer(url: String, currentVersionCode: Int): UpdateInfo? {
         return try {
             val conn = URL(url).openConnection() as HttpURLConnection
-            conn.connectTimeout = 10000; conn.readTimeout = 10000
+            conn.connectTimeout = 8000; conn.readTimeout = 8000
             conn.setRequestProperty("User-Agent", "YueYin-Android/1.0")
             conn.setRequestProperty("Accept", "application/json")
+            conn.instanceFollowRedirects = true
             if (conn.responseCode != 200) { conn.disconnect(); return null }
             val json = conn.inputStream.bufferedReader().readText(); conn.disconnect()
-            val v = Gson().fromJson(json, VersionFile::class.java)
+            if (json.isBlank()) return null
+            val v = Gson().fromJson(json, VersionFile::class.java) ?: return null
             if (v.versionCode > currentVersionCode) UpdateInfo(v.versionCode, v.versionName, v.apkUrl, v.updateLog) else null
-        } catch (_: Exception) { null }
+        } catch (e: Exception) { null }
     }
 
     suspend fun downloadApk(context: Context, apkUrl: String, onProgress: (String) -> Unit): File? = withContext(Dispatchers.IO) {

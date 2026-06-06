@@ -7,6 +7,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -40,6 +41,7 @@ fun LibraryScreen(viewModel: MainViewModel, onBookClick: (String) -> Unit) {
     var filterMode by remember { mutableStateOf("全部") }
     var showAllBooks by remember { mutableStateOf(false) }
     val booksLoading by viewModel.booksLoading.collectAsState()
+    val listState = rememberLazyListState()
     val filtered = remember(allBooks, bookProgress, filterMode) {
         when (filterMode) {
             "在听" -> allBooks.filter { bookProgress.containsKey(it.id) }
@@ -57,7 +59,8 @@ fun LibraryScreen(viewModel: MainViewModel, onBookClick: (String) -> Unit) {
     PullToRefreshLayout(
         isRefreshing = booksLoading,
         onRefresh = { viewModel.loadBooks() },
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier.fillMaxSize(),
+        listState = listState
     ) {
     Column(modifier = Modifier.fillMaxSize()) {
         Spacer(modifier = Modifier.height(48.dp))
