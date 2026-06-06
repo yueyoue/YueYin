@@ -68,12 +68,14 @@ class AudiobookPlayerManager(private val context: Context) {
 
     var onProgressUpdate: ((bookId: String, chapterId: String, position: Long, duration: Long) -> Unit)? = null
     var onChapterAutoAdvanced: ((TingChapter) -> Unit)? = null
+    var onError: ((String) -> Unit)? = null
 
     private var streamBaseUrl: String = ""
     private var authToken: String = ""
 
     companion object {
         const val ACTION_NEXT = "com.yueyin.AUDIOBOOK_NEXT"
+        const val ACTION_PREV = "com.yueyin.AUDIOBOOK_PREV"
         const val ACTION_PLAY_PAUSE = "com.yueyin.AUDIOBOOK_PLAY_PAUSE"
         const val ACTION_FORWARD = "com.yueyin.AUDIOBOOK_FORWARD"
         const val ACTION_REWIND = "com.yueyin.AUDIOBOOK_REWIND"
@@ -98,6 +100,7 @@ class AudiobookPlayerManager(private val context: Context) {
             override fun onReceive(ctx: Context?, intent: Intent?) {
                 when (intent?.action) {
                     ACTION_NEXT -> skipNext()
+                    ACTION_PREV -> skipPrevious()
                     ACTION_PLAY_PAUSE -> togglePlayPause()
                     ACTION_FORWARD -> forward15s()
                     ACTION_REWIND -> rewind15s()
@@ -105,7 +108,7 @@ class AudiobookPlayerManager(private val context: Context) {
             }
         }
         val filter = IntentFilter().apply {
-            addAction(ACTION_NEXT); addAction(ACTION_PLAY_PAUSE); addAction(ACTION_FORWARD); addAction(ACTION_REWIND)
+            addAction(ACTION_NEXT); addAction(ACTION_PREV); addAction(ACTION_PLAY_PAUSE); addAction(ACTION_FORWARD); addAction(ACTION_REWIND)
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             context.registerReceiver(broadcastReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
@@ -125,19 +128,34 @@ class AudiobookPlayerManager(private val context: Context) {
                 addListener(object : Player.Listener {
                     override fun onIsPlayingChanged(isPlaying: Boolean) { _isPlaying.value = isPlaying; updateNotification() }
                     override fun onPlaybackStateChanged(playbackState: Int) {
-                        if (playbackState == Player.STATE_READY) _duration.value = duration
-                        // When a chapter finishes and player transitions to next, ensure playback continues
+                        if (playbackState == Player.STATE_READY) {
+                            _duration.value = duration
+                            updateNotification()
+                        }
+                        // When a chapter finishes, ensure we advance or stop properly
                         if (playbackState == Player.STATE_ENDED) {
                             player?.let { p ->
                                 if (p.hasNextMediaItem()) {
                                     p.seekToNext()
                                     p.play()
+                                } else {
+                                    _isPlaying.value = false
+                                    updateNotification()
                                 }
                             }
                         }
                     }
                     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-                        updateCurrentFromPlayer(); updateNotification()
+                        // Reset position for new chapter
+                        _currentPosition.value = 0L
+                        _progress.value = 0f
+                        updateCurrentFromPlayer()
+                        // Delay notification update slightly to let player state stabilize
+                        scope.launch {
+                            kotlinx.coroutines.delay(150)
+                            player?.let { _duration.value = it.duration.coerceAtLeast(0) }
+                            updateNotification()
+                        }
                         _currentChapter.value?.let { onChapterAutoAdvanced?.invoke(it) }
                         // Ensure playback continues after auto-transition
                         if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
@@ -150,6 +168,8 @@ class AudiobookPlayerManager(private val context: Context) {
                             if (p.hasNextMediaItem()) {
                                 p.seekToNext()
                                 p.play()
+                            } else {
+                                onError?.invoke("播放出错: ${error.message}")
                             }
                         }
                     }
@@ -250,9 +270,11 @@ class AudiobookPlayerManager(private val context: Context) {
         session.setPlaybackState(state)
 
         val openPI = PendingIntent.getActivity(context, 0, Intent(context, MainActivity::class.java), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val prevPI = PendingIntent.getBroadcast(context, 20, Intent(ACTION_PREV).setPackage(context.packageName), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val rewindPI = PendingIntent.getBroadcast(context, 14, Intent(ACTION_REWIND).setPackage(context.packageName), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val playPausePI = PendingIntent.getBroadcast(context, 11, Intent(ACTION_PLAY_PAUSE).setPackage(context.packageName), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val forwardPI = PendingIntent.getBroadcast(context, 13, Intent(ACTION_FORWARD).setPackage(context.packageName), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val nextPI = PendingIntent.getBroadcast(context, 21, Intent(ACTION_NEXT).setPackage(context.packageName), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setContentIntent(openPI).setSmallIcon(android.R.drawable.ic_media_play)
@@ -260,10 +282,12 @@ class AudiobookPlayerManager(private val context: Context) {
             .setSubText("第${_currentChapterIndex.value + 1}章")
             .setPriority(NotificationCompat.PRIORITY_HIGH).setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setOngoing(_isPlaying.value).setShowWhen(false).setCategory(NotificationCompat.CATEGORY_TRANSPORT)
-            .setStyle(MediaStyle().setMediaSession(session.sessionToken).setShowActionsInCompactView(0, 1, 2))
-            .addAction(R.drawable.ic_notif_prev, "后退15秒", rewindPI)
+            .setStyle(MediaStyle().setMediaSession(session.sessionToken).setShowActionsInCompactView(1, 2, 3))
+            .addAction(R.drawable.ic_notif_prev, "上一章", prevPI)
+            .addAction(R.drawable.ic_notif_rewind, "后退15秒", rewindPI)
             .addAction(if (_isPlaying.value) R.drawable.ic_notif_pause else R.drawable.ic_notif_play, if (_isPlaying.value) "暂停" else "播放", playPausePI)
-            .addAction(R.drawable.ic_notif_next, "前进15秒", forwardPI)
+            .addAction(R.drawable.ic_notif_forward, "前进15秒", forwardPI)
+            .addAction(R.drawable.ic_notif_next, "下一章", nextPI)
             .build()
         nm.notify(NOTIFICATION_ID, notification)
     }

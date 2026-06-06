@@ -42,7 +42,6 @@ fun DiscoverScreen(viewModel: MainViewModel, onBookClick: (String) -> Unit, onSe
     val recentBooks = remember(allBooks, bookProgress) { viewModel.getRecentBooks() }
     val filteredBooks = remember(allBooks, selectedGenre) { viewModel.getFilteredBooks() }
     var allBooksViewMode by remember { mutableStateOf("grid") }
-    var isRefreshing by remember { mutableStateOf(false) }
 
     // Daily random recommendation based on day of year
     val dailyBook = remember(allBooks) {
@@ -54,12 +53,8 @@ fun DiscoverScreen(viewModel: MainViewModel, onBookClick: (String) -> Unit, onSe
     }
 
     PullToRefreshLayout(
-        isRefreshing = isRefreshing,
-        onRefresh = {
-            isRefreshing = true
-            viewModel.loadBooks()
-            isRefreshing = false
-        },
+        isRefreshing = booksLoading,
+        onRefresh = { viewModel.loadBooks() },
         modifier = Modifier.fillMaxSize()
     ) {
     LazyColumn(modifier = Modifier.fillMaxSize()) {

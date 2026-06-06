@@ -39,7 +39,7 @@ fun LibraryScreen(viewModel: MainViewModel, onBookClick: (String) -> Unit) {
     var viewMode by remember { mutableStateOf("grid") }
     var filterMode by remember { mutableStateOf("全部") }
     var showAllBooks by remember { mutableStateOf(false) }
-    var isRefreshing by remember { mutableStateOf(false) }
+    val booksLoading by viewModel.booksLoading.collectAsState()
     val filtered = remember(allBooks, bookProgress, filterMode) {
         when (filterMode) {
             "在听" -> allBooks.filter { bookProgress.containsKey(it.id) }
@@ -55,12 +55,8 @@ fun LibraryScreen(viewModel: MainViewModel, onBookClick: (String) -> Unit) {
     }
 
     PullToRefreshLayout(
-        isRefreshing = isRefreshing,
-        onRefresh = {
-            isRefreshing = true
-            viewModel.loadBooks()
-            isRefreshing = false
-        },
+        isRefreshing = booksLoading,
+        onRefresh = { viewModel.loadBooks() },
         modifier = Modifier.fillMaxSize()
     ) {
     Column(modifier = Modifier.fillMaxSize()) {

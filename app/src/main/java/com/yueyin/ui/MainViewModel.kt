@@ -95,6 +95,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         audiobookPlayerManager.onChapterAutoAdvanced = { chapter ->
             viewModelScope.launch { try { tingRepository.saveProgress(audiobookPlayerManager.currentBookId.value, chapter.id, 0.0, chapter.duration) } catch (_: Exception) {} }
         }
+        audiobookPlayerManager.onError = { msg ->
+            _toastMessage.value = msg
+        }
     }
 
     fun login(serverUrl: String, username: String, password: String) {
@@ -149,9 +152,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 tingRepository.configure(url, user, pass); tingRepository.login()
                 audiobookPlayerManager.updateStreamAuth(url, tingRepository.getAuthToken().removePrefix("Bearer "))
                 tingRepository.getBooks().onSuccess { books ->
-                    _allBooks.value = books
+                    // Fetch favorites and merge
+                    val favIds = mutableSetOf<String>()
+                    tingRepository.getFavorites().onSuccess { favs -> favs.forEach { favIds.add(it.bookId) } }
+                    val booksWithFav = books.map { it.copy(isFavorite = favIds.contains(it.id)) }
+                    _allBooks.value = booksWithFav
                     val gs = mutableSetOf<String>()
-                    books.forEach { b ->
+                    booksWithFav.forEach { b ->
                         b.genre?.split(",")?.forEach { if (it.isNotBlank()) gs.add(it.trim()) }
                     }
                     _genres.value = listOf("全部") + gs.sorted()
@@ -215,9 +222,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             // Optimistic update - immediately update local state
             _allBooks.value = _allBooks.value.map { if (it.id == bookId) it.copy(isFavorite = newFav) else it }
             // Then sync with server
-            if (book.isFavorite) tingRepository.removeFavorite(bookId) else tingRepository.addFavorite(bookId)
-            // Reload to sync with server
-            loadBooks()
+            val result = if (book.isFavorite) tingRepository.removeFavorite(bookId) else tingRepository.addFavorite(bookId)
+            if (result.isFailure) {
+                // Revert on failure
+                _allBooks.value = _allBooks.value.map { if (it.id == bookId) it.copy(isFavorite = !newFav) else it }
+                _toastMessage.value = "收藏操作失败: ${result.exceptionOrNull()?.message}"
+            }
         }
     }
 

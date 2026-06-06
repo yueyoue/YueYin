@@ -105,7 +105,7 @@ fun ProfileScreen(viewModel: MainViewModel) {
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outline)
                 MenuItem(Icons.Default.Update, "检查更新") { viewModel.checkForUpdate(silent = false) }
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outline)
-                MenuItem(Icons.Default.Info, "关于", "悦音听书 v1.0.6") {}
+                MenuItem(Icons.Default.Info, "关于", "悦音听书 v1.0.7") {}
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outline)
                 MenuItem(Icons.Default.Logout, "退出登录", null, tint = Primary) { showLogout = true }
             }

@@ -64,7 +64,8 @@ data class TingFavorite(
 )
 
 data class TingStats(
-    @SerializedName("total_books") val totalBooks: Int = 0,
-    @SerializedName("total_chapters") val totalChapters: Int = 0,
-    @SerializedName("total_users") val totalUsers: Int = 0
+    val totalBooks: Int = 0,
+    val totalChapters: Int = 0,
+    val totalDuration: Double = 0.0,
+    val lastScanTime: String? = null
 )
