@@ -93,6 +93,8 @@ class AudiobookPlayerManager(private val context: Context) {
                 override fun onPause() { togglePlayPause() }
                 override fun onSkipToNext() { skipNext() }
                 override fun onSkipToPrevious() { skipPrevious() }
+                override fun onFastForward() { forward15s() }
+                override fun onRewind() { rewind15s() }
                 override fun onStop() { forcePause() }
             })
         }
@@ -132,13 +134,10 @@ class AudiobookPlayerManager(private val context: Context) {
                             _duration.value = duration
                             updateNotification()
                         }
-                        // When a chapter finishes, ensure we advance or stop properly
+                        // When a chapter finishes and no next item, stop
                         if (playbackState == Player.STATE_ENDED) {
                             player?.let { p ->
-                                if (p.hasNextMediaItem()) {
-                                    p.seekToNext()
-                                    p.play()
-                                } else {
+                                if (!p.hasNextMediaItem()) {
                                     _isPlaying.value = false
                                     updateNotification()
                                 }
@@ -152,15 +151,17 @@ class AudiobookPlayerManager(private val context: Context) {
                         updateCurrentFromPlayer()
                         // Delay notification update slightly to let player state stabilize
                         scope.launch {
-                            kotlinx.coroutines.delay(150)
-                            player?.let { _duration.value = it.duration.coerceAtLeast(0) }
+                            kotlinx.coroutines.delay(300)
+                            player?.let {
+                                _duration.value = it.duration.coerceAtLeast(0)
+                                // Ensure playback continues after auto-transition
+                                if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
+                                    it.play()
+                                }
+                            }
                             updateNotification()
                         }
                         _currentChapter.value?.let { onChapterAutoAdvanced?.invoke(it) }
-                        // Ensure playback continues after auto-transition
-                        if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
-                            player?.play()
-                        }
                     }
                     override fun onPlayerError(error: PlaybackException) {
                         // On error, try to skip to next and continue playing
@@ -264,7 +265,7 @@ class AudiobookPlayerManager(private val context: Context) {
         session.setMetadata(meta)
 
         val state = PlaybackStateCompat.Builder()
-            .setActions(PlaybackStateCompat.ACTION_PLAY or PlaybackStateCompat.ACTION_PAUSE or PlaybackStateCompat.ACTION_SKIP_TO_NEXT or PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS or PlaybackStateCompat.ACTION_PLAY_PAUSE)
+            .setActions(PlaybackStateCompat.ACTION_PLAY or PlaybackStateCompat.ACTION_PAUSE or PlaybackStateCompat.ACTION_PLAY_PAUSE or PlaybackStateCompat.ACTION_SKIP_TO_NEXT or PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS or PlaybackStateCompat.ACTION_FAST_FORWARD or PlaybackStateCompat.ACTION_REWIND)
             .setState(if (_isPlaying.value) PlaybackStateCompat.STATE_PLAYING else PlaybackStateCompat.STATE_PAUSED, _currentPosition.value, 1.0f)
             .build()
         session.setPlaybackState(state)

@@ -52,6 +52,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _stats = MutableStateFlow(TingStats())
     val stats: StateFlow<TingStats> = _stats.asStateFlow()
+    private val _favoriteBookIds = MutableStateFlow<Set<String>>(emptySet())
 
     private val _timerRemainingSeconds = MutableStateFlow(0L)
     val timerRemainingSeconds: StateFlow<Long> = _timerRemainingSeconds.asStateFlow()
@@ -155,6 +156,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     // Fetch favorites and merge
                     val favIds = mutableSetOf<String>()
                     tingRepository.getFavorites().onSuccess { favs -> favs.forEach { favIds.add(it.bookId) } }
+                    _favoriteBookIds.value = favIds
                     val booksWithFav = books.map { it.copy(isFavorite = favIds.contains(it.id)) }
                     _allBooks.value = booksWithFav
                     val gs = mutableSetOf<String>()
@@ -194,12 +196,22 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 // If same book is already loaded, don't reload
                 if (audiobookPlayerManager.currentBookId.value == bookId && audiobookPlayerManager.isBookLoaded()) {
+                    // But still sync favorite status from server
+                    tingRepository.getFavorites().onSuccess { favs ->
+                        _favoriteBookIds.value = favs.map { it.bookId }.toSet()
+                        _allBooks.value = _allBooks.value.map { it.copy(isFavorite = _favoriteBookIds.value.contains(it.id)) }
+                    }
                     return@launch
                 }
                 val url = settings.tingServerUrl.first(); val user = settings.tingUsername.first(); val pass = settings.tingPassword.first()
                 if (url.isNotBlank() && user.isNotBlank()) {
                     tingRepository.configure(url, user, pass); tingRepository.login()
                     audiobookPlayerManager.updateStreamAuth(url, tingRepository.getAuthToken().removePrefix("Bearer "))
+                }
+                // Sync favorites from server
+                tingRepository.getFavorites().onSuccess { favs ->
+                    _favoriteBookIds.value = favs.map { it.bookId }.toSet()
+                    _allBooks.value = _allBooks.value.map { it.copy(isFavorite = _favoriteBookIds.value.contains(it.id)) }
                 }
                 tingRepository.getChapters(bookId).onSuccess { chapters ->
                     if (chapters.isEmpty()) { _toastMessage.value = "该书暂无章节"; return@launch }
@@ -217,23 +229,26 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun toggleFavorite(bookId: String) {
         viewModelScope.launch {
-            val book = _allBooks.value.find { it.id == bookId } ?: return@launch
-            val newFav = !book.isFavorite
+            val book = _allBooks.value.find { it.id == bookId }
+            val currentlyFav = book?.isFavorite ?: _favoriteBookIds.value.contains(bookId)
+            val newFav = !currentlyFav
             // Optimistic update - immediately update local state
             _allBooks.value = _allBooks.value.map { if (it.id == bookId) it.copy(isFavorite = newFav) else it }
+            _favoriteBookIds.value = if (newFav) _favoriteBookIds.value + bookId else _favoriteBookIds.value - bookId
             // Then sync with server
-            val result = if (book.isFavorite) tingRepository.removeFavorite(bookId) else tingRepository.addFavorite(bookId)
+            val result = if (currentlyFav) tingRepository.removeFavorite(bookId) else tingRepository.addFavorite(bookId)
             if (result.isFailure) {
                 // Revert on failure
                 _allBooks.value = _allBooks.value.map { if (it.id == bookId) it.copy(isFavorite = !newFav) else it }
+                _favoriteBookIds.value = if (!newFav) _favoriteBookIds.value + bookId else _favoriteBookIds.value - bookId
                 _toastMessage.value = "收藏操作失败: ${result.exceptionOrNull()?.message}"
             }
         }
     }
 
     fun isBookFavorite(bookId: String): StateFlow<Boolean> {
-        return _allBooks.map { books -> books.find { it.id == bookId }?.isFavorite ?: false }
-            .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+        return _favoriteBookIds.map { ids -> ids.contains(bookId) }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, _favoriteBookIds.value.contains(bookId))
     }
 
     fun setAudiobookTimer(minutes: Int) {

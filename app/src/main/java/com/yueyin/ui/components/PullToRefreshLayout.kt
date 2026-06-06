@@ -25,16 +25,18 @@ fun PullToRefreshLayout(
     isRefreshing: Boolean,
     onRefresh: () -> Unit,
     modifier: Modifier = Modifier,
-    triggerDistance: Dp = 120.dp,
+    triggerDistance: Dp = 200.dp,
     content: @Composable () -> Unit
 ) {
     val density = LocalDensity.current
     val triggerPx = with(density) { triggerDistance.toPx() }
-    val maxPullPx = with(density) { 200.dp.toPx() }
+    val maxPullPx = with(density) { 280.dp.toPx() }
+    val minActivationPx = with(density) { 40.dp.toPx() }
     val scope = rememberCoroutineScope()
 
     var pullOffset by remember { mutableFloatStateOf(0f) }
     var isUserPulling by remember { mutableStateOf(false) }
+    var accumulatedPull by remember { mutableFloatStateOf(0f) }
 
     // Animated offset for smooth spring-back
     val animatedOffset by animateFloatAsState(
@@ -48,6 +50,7 @@ fun PullToRefreshLayout(
         if (!isRefreshing) {
             pullOffset = 0f
             isUserPulling = false
+            accumulatedPull = 0f
         }
     }
 
@@ -59,6 +62,7 @@ fun PullToRefreshLayout(
                 if (pullOffset > 0 && available.y < 0) {
                     val consumed = min(pullOffset, -available.y)
                     pullOffset -= consumed
+                    accumulatedPull = (accumulatedPull - consumed).coerceAtLeast(0f)
                     return Offset(0f, -consumed)
                 }
                 return Offset.Zero
@@ -68,11 +72,17 @@ fun PullToRefreshLayout(
                 if (isRefreshing) return Offset.Zero
                 // Only allow pull when at top (no more content consumed upward)
                 if (available.y > 0 && consumed.y == 0f) {
-                    isUserPulling = true
-                    // Apply diminishing resistance as pull further
-                    val resistance = 1f - (pullOffset / maxPullPx).coerceIn(0f, 0.7f)
-                    val dampened = available.y * resistance * 0.6f
-                    pullOffset = min(pullOffset + dampened, maxPullPx)
+                    // Accumulate total pull distance before activating
+                    accumulatedPull += available.y
+
+                    // Only start showing pull indicator after minimum activation threshold
+                    if (accumulatedPull > minActivationPx) {
+                        isUserPulling = true
+                        // Apply strong resistance - pull slowly with diminishing returns
+                        val resistance = 1f - (pullOffset / maxPullPx).coerceIn(0f, 0.8f)
+                        val dampened = available.y * resistance * 0.35f
+                        pullOffset = min(pullOffset + dampened, maxPullPx)
+                    }
                     return Offset(0f, available.y)
                 }
                 return Offset.Zero
@@ -87,6 +97,7 @@ fun PullToRefreshLayout(
                 } else if (!isRefreshing) {
                     pullOffset = 0f
                 }
+                accumulatedPull = 0f
                 return Velocity.Zero
             }
         }
