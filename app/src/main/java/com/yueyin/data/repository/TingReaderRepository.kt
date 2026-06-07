@@ -20,18 +20,9 @@ class TingReaderRepository {
     fun getStreamUrl(chapterId: String): String = TingReaderApiClient.getStreamUrl(serverUrl, chapterId)
     fun getCoverUrl(coverUrl: String?, bookId: String? = null): String? {
         if (coverUrl.isNullOrBlank()) return null
-        // External URL → use proxy
-        if (coverUrl.startsWith("http://") || coverUrl.startsWith("https://")) {
-            return TingReaderApiClient.getCoverProxyUrl(serverUrl, coverUrl)
-        }
-        // Local file path → use /api/books/{id}/cover endpoint (most reliable)
-        if (bookId != null) {
-            val base = TingReaderApiClient.normalizeUrl(serverUrl).trimEnd('/')
-            return "$base/api/books/$bookId/cover"
-        }
-        // Fallback: try direct path
-        val base = TingReaderApiClient.normalizeUrl(serverUrl).trimEnd('/')
-        return "$base${if (coverUrl.startsWith("/")) "" else "/"}$coverUrl"
+        // Both external URLs and local paths → use /api/proxy/cover?path= endpoint
+        // The server proxy handles both external URLs and local file paths via the 'path' parameter
+        return TingReaderApiClient.getCoverProxyUrl(serverUrl, coverUrl)
     }
     fun getAuthToken(): String = "Bearer $token"
 

@@ -28,7 +28,7 @@ data class VersionFile(
 )
 
 object UpdateChecker {
-    private const val VERSION_URL = "http://ct.tthsdd.top/update/version.json"
+    private const val VERSION_URL = "https://ct.tthsdd.top/update/version.json"
     private const val GITHUB_VERSION_URL = "https://raw.githubusercontent.com/yueyoue/YueYin/main/update/version.json"
 
     suspend fun check(currentVersionCode: Int): UpdateInfo? = withContext(Dispatchers.IO) {

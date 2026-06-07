@@ -39,7 +39,7 @@ object TingReaderApiClient {
 
     fun getCoverProxyUrl(baseUrl: String, coverUrl: String): String {
         val encodedUrl = java.net.URLEncoder.encode(coverUrl, "UTF-8")
-        return "${normalizeUrl(baseUrl)}api/proxy/cover?url=$encodedUrl"
+        return "${normalizeUrl(baseUrl)}api/proxy/cover?path=$encodedUrl"
     }
 
     fun normalizeUrl(url: String): String {

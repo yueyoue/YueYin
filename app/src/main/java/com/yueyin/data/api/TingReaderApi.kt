@@ -45,5 +45,5 @@ interface TingReaderApi {
     suspend fun getStats(@Header("Authorization") token: String): TingStats
 
     @GET("/api/proxy/cover")
-    suspend fun proxyCover(@Header("Authorization") token: String, @Query("url") url: String): ResponseBody
+    suspend fun proxyCover(@Header("Authorization") token: String, @Query("path") path: String): ResponseBody
 }

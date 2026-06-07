@@ -1,6 +1,6 @@
 {
-    "versionCode": 15,
-    "versionName": "1.1.5",
-    "apkUrl": "https://github.com/yueyoue/YueYin/releases/download/1.1.5/app-release.apk",
-    "updateLog": "1. 修复播放页收藏状态与服务器不同步的问题\n2. 修复封面图片不显示的问题\n3. 修复切换有声书后封面图片不更新的问题\n4. 播放页书名、作者、播音居中显示\n5. 修复锁屏播放器±15秒按钮无效的问题\n6. 版本号升级至 15 / 1.1.5"
+    "versionCode": 16,
+    "versionName": "1.1.6",
+    "apkUrl": "https://github.com/yueyoue/YueYin/releases/download/1.1.6/app-release.apk",
+    "updateLog": "1. 修复封面图片不显示的问题（外链图片和本地图片）\n2. 修复版本更新检测不工作的问题\n3. 版本号升级至 16 / 1.1.6"
 }
