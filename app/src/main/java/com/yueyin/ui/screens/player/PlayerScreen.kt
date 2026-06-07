@@ -130,8 +130,8 @@ fun PlayerScreen(bookId: String, viewModel: MainViewModel, onBack: () -> Unit) {
             Spacer(modifier = Modifier.height(12.dp))
 
             // Book info
-            Column(modifier = Modifier.padding(horizontal = 30.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(title, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center, modifier = Modifier.basicMarquee().fillMaxWidth())
+            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 30.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(title, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center, modifier = Modifier.basicMarquee())
                 if (author.isNotBlank()) Text(author, fontSize = 13.sp, color = OnSurfaceVariant, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 3.dp))
                 if (narrator.isNotBlank()) Text("播音：$narrator", fontSize = 12.sp, color = OnSurfaceVariant2, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 2.dp))
                 if (chapter != null) {
