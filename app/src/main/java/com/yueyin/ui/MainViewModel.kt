@@ -190,7 +190,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun searchBooks(query: String) {
         _searchQuery.value = query
         if (query.isBlank()) { _searchResults.value = emptyList(); return }
-        viewModelScope.launch { tingRepository.searchBooks(query).onSuccess { _searchResults.value = it } }
+        viewModelScope.launch {
+            tingRepository.searchBooks(query).onSuccess { books ->
+                _searchResults.value = books.map { it.copy(coverUrl = tingRepository.getCoverUrl(it.coverUrl, it.id)) }
+            }
+        }
     }
 
     fun loadAndPlayAudiobook(bookId: String) {
