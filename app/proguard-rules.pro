@@ -1,0 +1,25 @@
+-keepattributes Signature, Exceptions, *Annotation*
+-keep class retrofit2.** { *; }
+-keepclasseswithmembers class * { @retrofit2.http.* <methods>; }
+-keepclassmembers,allowshrinking,allowobfuscation interface * { @retrofit2.http.* <methods>; }
+-keep,allowobfuscation,allowshrinking interface retrofit2.Call
+-keep,allowobfuscation,allowshrinking class retrofit2.Response
+-keep,allowobfuscation,allowshrinking class kotlin.coroutines.Continuation
+-dontwarn sun.misc.**
+-keep class com.google.gson.** { *; }
+-keep class com.google.gson.stream.** { *; }
+-keep class com.yueyin.data.model.** { *; }
+-keep class com.google.gson.reflect.TypeToken { *; }
+-keep class * extends com.google.gson.reflect.TypeToken
+-keepattributes EnclosingMethod, InnerClasses
+-dontwarn okhttp3.**, okio.**
+-keep class okhttp3.** { *; }
+-keep interface okhttp3.** { *; }
+-keepnames class kotlinx.coroutines.internal.MainDispatcherFactory {}
+-keepnames class kotlinx.coroutines.CoroutineExceptionHandler {}
+-keepclassmembers class kotlinx.coroutines.** { volatile <fields>; }
+-keep class androidx.media3.** { *; }
+-keep class androidx.media3.datasource.okhttp.** { *; }
+-keep class coil.** { *; }
+-keep class com.yueyin.data.api.TingReaderApi { *; }
+-keep class com.yueyin.data.api.TingReaderApiClient { *; }

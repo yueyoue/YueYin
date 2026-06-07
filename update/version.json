@@ -1,0 +1,6 @@
+{
+    "versionCode": 14,
+    "versionName": "1.1.4",
+    "apkUrl": "https://github.com/yueyoue/YueYin/releases/download/1.1.4/app-release.apk",
+    "updateLog": "1. 修复播放页收藏状态不同步的问题\n2. 移除首页和书架页的下拉刷新\n3. 修复锁屏播放器±15秒按钮无效的问题\n4. 修复后台播放跳转多集后卡住的问题\n5. 修复检查更新功能无法检测新版本的问题\n6. 修复关于页面版本号显示错误\n7. 版本号升级至 14 / 1.1.4"
+}
