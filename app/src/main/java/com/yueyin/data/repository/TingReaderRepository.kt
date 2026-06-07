@@ -25,7 +25,20 @@ class TingReaderRepository {
 
     suspend fun ping(): Result<Unit> {
         return try {
-            val response = api!!.getStats()
+            // Lightweight connectivity check - just try to reach the server
+            val client = okhttp3.OkHttpClient.Builder()
+                .connectTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
+                .readTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
+                .build()
+            val url = "${TingReaderApiClient.normalizeUrl(serverUrl)}api/auth/login"
+            val body = okhttp3.RequestBody.create(
+                okhttp3.MediaType.parse("application/json"),
+                "{}"
+            )
+            val request = okhttp3.Request.Builder().url(url).post(body).build()
+            val response = client.newCall(request).execute()
+            response.close()
+            // Any response (even 400/401) means the server is reachable
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(Exception(mapConnectionError(e)))
