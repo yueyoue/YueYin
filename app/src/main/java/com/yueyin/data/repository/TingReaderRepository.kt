@@ -23,13 +23,28 @@ class TingReaderRepository {
     }
     fun getAuthToken(): String = "Bearer $token"
 
-    suspend fun ping(): Result<Unit> = try { api!!.getStats(""); Result.success(Unit) } catch (e: Exception) {
-        Result.failure(Exception(when {
-            e.message?.contains("timeout") == true -> "连接超时"
-            e.message?.contains("Unable to resolve host") == true -> "无法解析服务器地址"
-            e.message?.contains("Connection refused") == true -> "连接被拒绝"
-            else -> e.message ?: "连接失败"
-        }))
+    suspend fun ping(): Result<Unit> {
+        return try {
+            // Use a direct HTTP check to avoid Gson deserialization issues
+            val url = java.net.URL("${TingReaderApiClient.normalizeUrl(serverUrl)}api/stats")
+            val conn = url.openConnection() as java.net.HttpURLConnection
+            conn.connectTimeout = 10000
+            conn.readTimeout = 10000
+            conn.requestMethod = "GET"
+            conn.setRequestProperty("User-Agent", "YueYin-Android/1.1.1")
+            val code = conn.responseCode
+            conn.disconnect()
+            if (code in 200..399) Result.success(Unit)
+            else Result.failure(Exception("服务器返回错误: $code"))
+        } catch (e: Exception) {
+            Result.failure(Exception(when {
+                e.message?.contains("timeout", true) == true -> "连接超时"
+                e.message?.contains("Unable to resolve host", true) == true -> "无法解析服务器地址"
+                e.message?.contains("Connection refused", true) == true -> "连接被拒绝"
+                e.message?.contains("connect", true) == true -> "无法连接到服务器"
+                else -> e.message ?: "连接失败"
+            }))
+        }
     }
 
     suspend fun login(): Result<Unit> = try {
