@@ -1,6 +1,6 @@
 {
-    "versionCode": 9,
-    "versionName": "v1.0.9",
-    "apkUrl": "https://github.com/yueyoue/YueYin/releases/download/v1.0.9/app-release.apk",
-    "updateLog": "1. 修复收藏按钮同步问题，退出APP后收藏状态正确显示\n2. 下拉刷新优化：仅在页面最顶端才触发\n3. 锁屏播放器增加前进/后退15秒按钮\n4. 修复播放页封面图右侧显示内容简介的问题\n5. 内容简介图标更换\n6. 15秒快进快退按钮增加15标识\n7. 版本号更新至 v1.0.9\n8. 版本号升级至 9 / 1.0.9"
+    "versionCode": 11,
+    "versionName": "v1.1.1",
+    "apkUrl": "https://github.com/yueyoue/YueYin/releases/download/v1.1.1/app-release.apk",
+    "updateLog": "1. 修复登录页面连接服务器报错(ClassCastException)的问题\n2. 改用直接HTTP连接做服务器检测，提升连接稳定性\n3. 版本号升级至 11 / 1.1.1"
 }
