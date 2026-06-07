@@ -25,33 +25,10 @@ class TingReaderRepository {
 
     suspend fun ping(): Result<Unit> {
         return try {
-            // Use OkHttp for reliable HTTP connectivity (handles cleartext HTTP better than HttpURLConnection)
-            val client = okhttp3.OkHttpClient.Builder()
-                .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
-                .readTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
-                .writeTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
-                .build()
-            val url = "${TingReaderApiClient.normalizeUrl(serverUrl)}api/stats"
-            val request = okhttp3.Request.Builder()
-                .url(url)
-                .header("User-Agent", "YueYin-Android/1.1.1")
-                .get()
-                .build()
-            val response = client.newCall(request).execute()
-            response.close()
-            if (response.isSuccessful) Result.success(Unit)
-            else Result.failure(Exception("服务器返回错误: ${response.code}"))
+            val response = api!!.getStats()
+            Result.success(Unit)
         } catch (e: Exception) {
-            Result.failure(Exception(when {
-                e is java.net.SocketTimeoutException -> "连接超时，请检查网络"
-                e is okhttp3.internal.connection.RouteException ||
-                e.message?.contains("Unable to resolve host", true) == true -> "无法解析服务器地址，请检查地址是否正确"
-                e.message?.contains("Connection refused", true) == true -> "连接被拒绝，服务器可能未启动"
-                e.message?.contains("SSL", true) == true -> "SSL连接错误"
-                e.message?.contains("canceled", true) == true -> "连接被取消"
-                e.message?.contains("connect", true) == true -> "无法连接到服务器，请检查网络和服务器地址"
-                else -> "连接失败: ${e.message ?: "未知错误"}"
-            }))
+            Result.failure(Exception(mapConnectionError(e)))
         }
     }
 
@@ -59,10 +36,22 @@ class TingReaderRepository {
         val response = api!!.login(TingLoginRequest(username, password))
         if (response.token.isNotBlank()) { token = response.token; Result.success(Unit) }
         else Result.failure(Exception("登录失败"))
-    } catch (e: Exception) { Result.failure(Exception(when {
-        e.message?.contains("401") == true -> "用户名或密码错误"
-        else -> e.message ?: "登录失败"
-    })) }
+    } catch (e: Exception) { Result.failure(Exception(mapConnectionError(e))) }
+
+    private fun mapConnectionError(e: Exception): String {
+        val msg = e.message ?: ""
+        return when {
+            e is java.net.SocketTimeoutException -> "连接超时，请检查网络"
+            e is java.net.ConnectException -> "无法连接到服务器，请确认地址和端口正确"
+            msg.contains("Unable to resolve host", true) -> "无法解析服务器地址，请检查域名是否正确"
+            msg.contains("Connection refused", true) -> "连接被拒绝，服务器可能未启动"
+            msg.contains("timeout", true) -> "连接超时，请检查网络"
+            msg.contains("SSL", true) -> "SSL连接错误"
+            msg.contains("401") -> "用户名或密码错误"
+            msg.contains("connect", true) -> "无法连接到服务器: $msg"
+            else -> "连接失败: $msg"
+        }
+    }
 
     suspend fun getBooks(): Result<List<TingBook>> = try { Result.success(api!!.getBooks("Bearer $token")) } catch (e: Exception) { Result.failure(e) }
     suspend fun getBook(id: String): Result<TingBook> = try { Result.success(api!!.getBook("Bearer $token", id)) } catch (e: Exception) { Result.failure(e) }

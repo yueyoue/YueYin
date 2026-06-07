@@ -106,14 +106,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             _isLoading.value = true; _loginError.value = null
             try {
                 tingRepository.configure(serverUrl, username, password)
-                val ping = tingRepository.ping()
-                if (ping.isFailure) { _loginError.value = ping.exceptionOrNull()?.message; _isLoading.value = false; return@launch }
-                if (tingRepository.login().isSuccess) {
+                val result = tingRepository.login()
+                if (result.isSuccess) {
                     settings.saveTingLogin(serverUrl, username, password)
                     settings.saveTingToken(tingRepository.getAuthToken().removePrefix("Bearer "))
                     audiobookPlayerManager.updateStreamAuth(serverUrl, tingRepository.getAuthToken().removePrefix("Bearer "))
                     _isLoggedIn.value = true; loadBooks()
-                } else { _loginError.value = "登录失败" }
+                } else { _loginError.value = result.exceptionOrNull()?.message ?: "登录失败" }
             } catch (e: Exception) { _loginError.value = e.message ?: "连接失败" }
             finally { _isLoading.value = false }
         }
@@ -132,14 +131,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 settings.saveTingLogin(serverUrl, username, password)
                 tingRepository.configure(serverUrl, username, password)
-                val ping = tingRepository.ping()
-                if (ping.isFailure) { _toastMessage.value = "连接失败: ${ping.exceptionOrNull()?.message}"; return@launch }
-                if (tingRepository.login().isSuccess) {
+                val result = tingRepository.login()
+                if (result.isSuccess) {
                     settings.saveTingToken(tingRepository.getAuthToken().removePrefix("Bearer "))
                     audiobookPlayerManager.updateStreamAuth(serverUrl, tingRepository.getAuthToken().removePrefix("Bearer "))
                     _toastMessage.value = "服务器信息已更新"
                     loadBooks()
-                } else { _toastMessage.value = "登录失败" }
+                } else { _toastMessage.value = "登录失败: ${result.exceptionOrNull()?.message}" }
             } catch (e: Exception) { _toastMessage.value = "更新失败: ${e.message}" }
         }
     }
