@@ -3,6 +3,7 @@ package com.yueyin.data.repository
 import com.yueyin.data.api.TingReaderApiClient
 import com.yueyin.data.api.TingReaderApi
 import com.yueyin.data.model.*
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
 
 class TingReaderRepository {
     private var api: TingReaderApi? = null
@@ -32,7 +33,7 @@ class TingReaderRepository {
                 .build()
             val url = "${TingReaderApiClient.normalizeUrl(serverUrl)}api/auth/login"
             val body = okhttp3.RequestBody.create(
-                okhttp3.MediaType.parse("application/json"),
+                "application/json".toMediaTypeOrNull(),
                 "{}"
             )
             val request = okhttp3.Request.Builder().url(url).post(body).build()
