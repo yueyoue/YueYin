@@ -156,7 +156,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 favResult.onSuccess { favs -> favs.forEach { favIds.add(it.bookId) } }
                 _favoriteBookIds.value = favIds
                 tingRepository.getBooks().onSuccess { books ->
-                    val booksWithFav = books.map { it.copy(isFavorite = favIds.contains(it.id)) }
+                    val booksWithFav = books.map {
+                        val resolvedCover = tingRepository.getCoverUrl(it.coverUrl, it.id)
+                        it.copy(isFavorite = favIds.contains(it.id), coverUrl = resolvedCover)
+                    }
                     _allBooks.value = booksWithFav
                     val gs = mutableSetOf<String>()
                     booksWithFav.forEach { b ->
@@ -219,7 +222,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         if (p != null) { val i = chapters.indexOfFirst { it.id == p.chapterId }; if (i >= 0) { startIdx = i; startMs = (p.position * 1000).toLong() } }
                     }
                     tingRepository.getBook(bookId).onSuccess { book ->
-                        val resolvedCoverUrl = tingRepository.getCoverUrl(book.coverUrl)
+                        val resolvedCoverUrl = tingRepository.getCoverUrl(book.coverUrl, bookId)
                         audiobookPlayerManager.loadBook(bookId, book.title, book.author, book.narrator ?: "", resolvedCoverUrl, book.description ?: "", chapters, startIdx, startMs)
                     }
                 }

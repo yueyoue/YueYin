@@ -18,13 +18,18 @@ class TingReaderRepository {
     }
 
     fun getStreamUrl(chapterId: String): String = TingReaderApiClient.getStreamUrl(serverUrl, chapterId)
-    fun getCoverUrl(coverUrl: String?): String? {
+    fun getCoverUrl(coverUrl: String?, bookId: String? = null): String? {
         if (coverUrl.isNullOrBlank()) return null
-        // If it's already a full URL, use proxy
+        // External URL → use proxy
         if (coverUrl.startsWith("http://") || coverUrl.startsWith("https://")) {
             return TingReaderApiClient.getCoverProxyUrl(serverUrl, coverUrl)
         }
-        // If it's a relative path, prepend server URL directly
+        // Local file path → use /api/books/{id}/cover endpoint (most reliable)
+        if (bookId != null) {
+            val base = TingReaderApiClient.normalizeUrl(serverUrl).trimEnd('/')
+            return "$base/api/books/$bookId/cover"
+        }
+        // Fallback: try direct path
         val base = TingReaderApiClient.normalizeUrl(serverUrl).trimEnd('/')
         return "$base${if (coverUrl.startsWith("/")) "" else "/"}$coverUrl"
     }
