@@ -1,6 +1,6 @@
 {
     "versionCode": 11,
     "versionName": "v1.1.1",
-    "apkUrl": "https://github.com/yueyoue/YueYin/releases/download/v1.1.1/app-release.apk",
+    "apkUrl": "https://github.com/yueyoue/YueYin/releases/download/1.1.1/app-release.apk",
     "updateLog": "1. 修复登录页面连接服务器报错(ClassCastException)的问题\n2. 改用直接HTTP连接做服务器检测，提升连接稳定性\n3. 版本号升级至 11 / 1.1.1"
 }
