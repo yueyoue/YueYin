@@ -42,7 +42,7 @@ object TingReaderApiClient {
         return "${normalizeUrl(baseUrl)}api/proxy/cover?url=$encodedUrl"
     }
 
-    private fun normalizeUrl(url: String): String {
+    fun normalizeUrl(url: String): String {
         var normalized = url.trim()
         if (!normalized.startsWith("http://") && !normalized.startsWith("https://")) normalized = "http://$normalized"
         if (!normalized.endsWith("/")) normalized = "$normalized/"
