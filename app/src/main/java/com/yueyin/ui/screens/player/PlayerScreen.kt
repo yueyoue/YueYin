@@ -66,7 +66,8 @@ fun PlayerScreen(bookId: String, viewModel: MainViewModel, onBack: () -> Unit) {
     val bookDesc by ap.currentBookDescription.collectAsState()
     val timerSec by viewModel.timerRemainingSeconds.collectAsState()
     val playbackSpeed by ap.playbackSpeed.collectAsState()
-    val isFavorite by viewModel.isBookFavorite(bookId).collectAsState()
+    val favoriteBookIds by viewModel.favoriteBookIds.collectAsState()
+    val isFavorite = remember(favoriteBookIds, bookId) { favoriteBookIds.contains(bookId) }
     var showTimer by remember { mutableStateOf(false) }
     var showChapters by remember { mutableStateOf(false) }
     var showSpeedMenu by remember { mutableStateOf(false) }

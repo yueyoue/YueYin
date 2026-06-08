@@ -50,9 +50,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _selectedGenre = MutableStateFlow("全部")
     val selectedGenre: StateFlow<String> = _selectedGenre.asStateFlow()
 
+    private val _libraries = MutableStateFlow<List<TingLibrary>>(emptyList())
+    val libraries: StateFlow<List<TingLibrary>> = _libraries.asStateFlow()
+    private val _libraryBooks = MutableStateFlow<Map<String, List<TingBook>>>(emptyMap())
+    val libraryBooks: StateFlow<Map<String, List<TingBook>>> = _libraryBooks.asStateFlow()
+    private val _libraryBooksLoading = MutableStateFlow(false)
+    val libraryBooksLoading: StateFlow<Boolean> = _libraryBooksLoading.asStateFlow()
+
     private val _stats = MutableStateFlow(TingStats())
     val stats: StateFlow<TingStats> = _stats.asStateFlow()
     private val _favoriteBookIds = MutableStateFlow<Set<String>>(emptySet())
+    val favoriteBookIds: StateFlow<Set<String>> = _favoriteBookIds.asStateFlow()
 
     private val _timerRemainingSeconds = MutableStateFlow(0L)
     val timerRemainingSeconds: StateFlow<Long> = _timerRemainingSeconds.asStateFlow()
@@ -169,8 +177,36 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 tingRepository.getRecentProgress().onSuccess { _bookProgress.value = it.associateBy { p -> p.bookId } }
                 try { tingRepository.getStats().getOrNull()?.let { _stats.value = it } } catch (_: Exception) {}
+                // Load libraries and per-library books
+                loadLibraryBooks()
             } catch (e: Exception) { _toastMessage.value = "加载失败: ${e.message}" }
             finally { _booksLoading.value = false }
+        }
+    }
+
+    private fun loadLibraryBooks() {
+        viewModelScope.launch {
+            _libraryBooksLoading.value = true
+            try {
+                tingRepository.getLibraries().onSuccess { libs ->
+                    _libraries.value = libs
+                    val map = mutableMapOf<String, List<TingBook>>()
+                    libs.forEach { lib ->
+                        tingRepository.getBooksByLibrary(lib.id).onSuccess { books ->
+                            val resolved = books.map { b ->
+                                val resolvedCover = tingRepository.getCoverUrl(b.coverUrl, b.id)
+                                b.copy(
+                                    coverUrl = resolvedCover,
+                                    isFavorite = _favoriteBookIds.value.contains(b.id)
+                                )
+                            }.sortedByDescending { it.createdAt ?: "" }.take(9)
+                            map[lib.id] = resolved
+                        }
+                    }
+                    _libraryBooks.value = map
+                }
+            } catch (_: Exception) {}
+            finally { _libraryBooksLoading.value = false }
         }
     }
 

@@ -69,3 +69,12 @@ data class TingStats(
     val totalDuration: Double = 0.0,
     val lastScanTime: String? = null
 )
+
+data class TingLibrary(
+    val id: String = "",
+    val name: String = "",
+    val path: String? = null,
+    val libraryType: String? = null,
+    val bookCount: Int? = null,
+    val createdAt: String? = null
+)

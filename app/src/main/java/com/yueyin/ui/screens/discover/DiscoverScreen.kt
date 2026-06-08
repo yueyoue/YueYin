@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -26,6 +27,7 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.yueyin.data.model.TingBook
+import com.yueyin.data.model.TingLibrary
 import com.yueyin.data.model.TingProgress
 import com.yueyin.ui.MainViewModel
 import com.yueyin.ui.theme.*
@@ -35,13 +37,12 @@ fun DiscoverScreen(viewModel: MainViewModel, onBookClick: (String) -> Unit, onSe
     val allBooks by viewModel.allBooks.collectAsState()
     val bookProgress by viewModel.bookProgress.collectAsState()
     val booksLoading by viewModel.booksLoading.collectAsState()
-    val genres by viewModel.genres.collectAsState()
-    val selectedGenre by viewModel.selectedGenre.collectAsState()
     val tingServerUrl by viewModel.tingServerUrl.collectAsState()
+    val libraries by viewModel.libraries.collectAsState()
+    val libraryBooks by viewModel.libraryBooks.collectAsState()
+    val libraryBooksLoading by viewModel.libraryBooksLoading.collectAsState()
     val context = LocalContext.current
     val recentBooks = remember(allBooks, bookProgress) { viewModel.getRecentBooks() }
-    val filteredBooks = remember(allBooks, selectedGenre) { viewModel.getFilteredBooks() }
-    var allBooksViewMode by remember { mutableStateOf("grid") }
     val listState = rememberLazyListState()
 
     // Daily random recommendation based on day of year
@@ -85,56 +86,36 @@ fun DiscoverScreen(viewModel: MainViewModel, onBookClick: (String) -> Unit, onSe
             item { Text("📖 继续收听", fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp)) }
             item { recentBooks.forEach { b -> ContinueCard(b, bookProgress[b.id], onClick = { onBookClick(b.id) }) } }
         }
-        if (genres.size > 1) {
-            item { Text("🏷️ 分类", fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp)) }
-            item {
-                Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    genres.forEach { g ->
-                        Surface(modifier = Modifier.clickable { viewModel.setSelectedGenre(g) }, shape = RoundedCornerShape(20.dp), color = if (g == selectedGenre) Primary else MaterialTheme.colorScheme.surface, border = if (g != selectedGenre) androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline) else null) {
-                            Text(g, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp), fontSize = 13.sp, fontWeight = if (g == selectedGenre) FontWeight.Bold else FontWeight.Medium, color = if (g == selectedGenre) Color.White else OnSurfaceVariant)
-                        }
-                    }
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-            }
-        }
-        // 全部有声书 header with count and view toggle
-        item {
-            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 14.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text("📚 全部有声书 (${filteredBooks.size}本)", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    IconButton(onClick = { allBooksViewMode = "grid" }, modifier = Modifier.size(36.dp)) {
-                        Icon(Icons.Default.GridView, "网格", tint = if (allBooksViewMode == "grid") Primary else OnSurfaceVariant, modifier = Modifier.size(20.dp))
-                    }
-                    IconButton(onClick = { allBooksViewMode = "list" }, modifier = Modifier.size(36.dp)) {
-                        Icon(Icons.Default.ViewList, "列表", tint = if (allBooksViewMode == "list") Primary else OnSurfaceVariant, modifier = Modifier.size(20.dp))
-                    }
-                }
-            }
-        }
-        if (booksLoading) {
+
+        // Per-library sections: each library shows 9 newest books
+        if (libraryBooksLoading) {
             item { Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Primary) } }
-        } else if (filteredBooks.isEmpty()) {
-            item { Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) { Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("📚", fontSize = 48.sp); Spacer(modifier = Modifier.height(8.dp)); Text("暂无有声书", color = OnSurfaceVariant) } } }
-        } else {
-            if (allBooksViewMode == "grid") {
-                filteredBooks.chunked(3).forEach { row ->
+        } else if (libraries.isNotEmpty()) {
+            libraries.forEach { lib ->
+                val books = libraryBooks[lib.id] ?: emptyList()
+                if (books.isNotEmpty()) {
                     item {
-                        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                            row.forEach { b -> BookGridItem(b, bookProgress[b.id], Modifier.weight(1f)) { onBookClick(b.id) } }
-                            repeat(3 - row.size) { Spacer(modifier = Modifier.weight(1f)) }
+                        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 14.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Text("📚 ${lib.name}", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                            Text("${books.size}本", fontSize = 12.sp, color = OnSurfaceVariant)
                         }
-                        Spacer(modifier = Modifier.height(14.dp))
                     }
-                }
-            } else {
-                filteredBooks.forEach { b ->
-                    item {
-                        DiscoverListItem(b, bookProgress[b.id]) { onBookClick(b.id) }
+                    // Show books in a 3-column grid (3 rows × 3 cols = 9 books)
+                    books.chunked(3).forEach { row ->
+                        item {
+                            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                                row.forEach { b -> BookGridItem(b, bookProgress[b.id], Modifier.weight(1f)) { onBookClick(b.id) } }
+                                repeat(3 - row.size) { Spacer(modifier = Modifier.weight(1f)) }
+                            }
+                            Spacer(modifier = Modifier.height(14.dp))
+                        }
                     }
                 }
             }
+        } else if (!booksLoading && allBooks.isEmpty()) {
+            item { Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) { Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("📚", fontSize = 48.sp); Spacer(modifier = Modifier.height(8.dp)); Text("暂无有声书", color = OnSurfaceVariant) } } }
         }
+
         item { Spacer(modifier = Modifier.height(100.dp)) }
     }
 }

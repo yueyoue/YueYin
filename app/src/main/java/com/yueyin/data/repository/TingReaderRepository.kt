@@ -80,4 +80,6 @@ class TingReaderRepository {
     suspend fun removeFavorite(bookId: String): Result<Unit> = try { api!!.removeFavorite("Bearer $token", bookId); Result.success(Unit) } catch (e: Exception) { Result.failure(e) }
     suspend fun searchBooks(query: String): Result<List<TingBook>> = try { Result.success(api!!.searchBooks("Bearer $token", query)) } catch (e: Exception) { Result.failure(e) }
     suspend fun getStats(): Result<TingStats> = try { Result.success(api!!.getStats("Bearer $token")) } catch (e: Exception) { Result.failure(e) }
+    suspend fun getLibraries(): Result<List<TingLibrary>> = try { Result.success(api!!.getLibraries("Bearer $token")) } catch (e: Exception) { Result.failure(e) }
+    suspend fun getBooksByLibrary(libraryId: String): Result<List<TingBook>> = try { Result.success(api!!.getBooksByLibrary("Bearer $token", libraryId)) } catch (e: Exception) { Result.failure(e) }
 }

@@ -46,4 +46,10 @@ interface TingReaderApi {
 
     @GET("/api/proxy/cover")
     suspend fun proxyCover(@Header("Authorization") token: String, @Query("path") path: String): ResponseBody
+
+    @GET("/api/libraries")
+    suspend fun getLibraries(@Header("Authorization") token: String): List<TingLibrary>
+
+    @GET("/api/books")
+    suspend fun getBooksByLibrary(@Header("Authorization") token: String, @Query("library_id") libraryId: String): List<TingBook>
 }
