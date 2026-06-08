@@ -1,6 +1,6 @@
 {
-    "versionCode": 16,
-    "versionName": "1.1.6",
-    "apkUrl": "https://github.com/yueyoue/YueYin/releases/download/1.1.6/app-release.apk",
-    "updateLog": "1. 修复封面图片不显示的问题（外链图片和本地图片）\n2. 修复版本更新检测不工作的问题\n3. 版本号升级至 16 / 1.1.6"
+    "versionCode": 18,
+    "versionName": "1.1.8",
+    "apkUrl": "https://github.com/yueyoue/YueYin/releases/download/1.1.8/app-release.apk",
+    "updateLog": "1. 修复切换书籍时播放页闪现上一本书信息的问题\n2. 修复收藏按钮不同步服务器的问题\n3. 版本号升级至 18 / 1.1.8"
 }

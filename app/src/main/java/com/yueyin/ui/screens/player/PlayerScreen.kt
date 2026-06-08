@@ -68,6 +68,9 @@ fun PlayerScreen(bookId: String, viewModel: MainViewModel, onBack: () -> Unit) {
     val playbackSpeed by ap.playbackSpeed.collectAsState()
     val favoriteBookIds by viewModel.favoriteBookIds.collectAsState()
     val isFavorite = remember(favoriteBookIds, bookId) { favoriteBookIds.contains(bookId) }
+    val currentLoadedBookId by ap.currentBookId.collectAsState()
+    // Detect if we're switching to a different book — show loading instead of stale data
+    val isBookReady = remember(currentLoadedBookId, bookId, chapters.size) { currentLoadedBookId == bookId && chapters.isNotEmpty() }
     var showTimer by remember { mutableStateOf(false) }
     var showChapters by remember { mutableStateOf(false) }
     var showSpeedMenu by remember { mutableStateOf(false) }
@@ -77,7 +80,7 @@ fun PlayerScreen(bookId: String, viewModel: MainViewModel, onBack: () -> Unit) {
     LaunchedEffect(bookId) {
         // Always sync favorite status from server when entering player
         viewModel.syncFavoriteFromServer(bookId)
-        if (ap.currentBookId.value != bookId || ap.chapters.value.isEmpty()) viewModel.loadAndPlayAudiobook(bookId)
+        if (currentLoadedBookId != bookId || chapters.isEmpty()) viewModel.loadAndPlayAudiobook(bookId)
     }
 
     Box(modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(primaryColor.copy(alpha = 0.08f), MaterialTheme.colorScheme.background)))) {
@@ -89,6 +92,14 @@ fun PlayerScreen(bookId: String, viewModel: MainViewModel, onBack: () -> Unit) {
                 Spacer(modifier = Modifier.size(48.dp))
             }
             Spacer(modifier = Modifier.height(8.dp))
+
+            if (!isBookReady) {
+                // Loading placeholder — no stale data flash
+                Box(modifier = Modifier.fillMaxWidth().height(280.dp), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = primaryColor, modifier = Modifier.size(48.dp))
+                }
+                Spacer(modifier = Modifier.weight(1f))
+            } else {
 
             // Cover + Description pager (swipe left for description)
             val hasDesc = bookDesc.isNotBlank()
@@ -211,6 +222,7 @@ fun PlayerScreen(bookId: String, viewModel: MainViewModel, onBack: () -> Unit) {
                     Text("收藏", fontSize = 10.sp, color = if (isFavorite) primaryColor else OnSurfaceVariant)
                 }
             }
+            } // end else (isBookReady)
         }
     }
 

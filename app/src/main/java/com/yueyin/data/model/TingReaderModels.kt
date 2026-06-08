@@ -58,10 +58,9 @@ data class TingProgressRequest(
     val duration: Double
 )
 
-data class TingFavorite(
-    @SerializedName("book_id") val bookId: String = "",
-    @SerializedName("created_at") val createdAt: String? = null
-)
+// Server /api/favorites returns full book objects, same shape as TingBook
+// Kept as alias for clarity
+typealias TingFavorite = TingBook
 
 data class TingStats(
     val totalBooks: Int = 0,

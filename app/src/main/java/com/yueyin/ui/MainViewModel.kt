@@ -166,7 +166,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 // Fetch favorites FIRST to ensure sync
                 val favIds = mutableSetOf<String>()
                 val favResult = tingRepository.getFavorites()
-                favResult.onSuccess { favs -> favs.forEach { favIds.add(it.bookId) } }
+                favResult.onSuccess { favs -> favs.forEach { favIds.add(it.id) } }
                 _favoriteBookIds.value = favIds
                 tingRepository.getBooks().onSuccess { books ->
                     val booksWithFav = books.map {
@@ -264,7 +264,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 if (audiobookPlayerManager.currentBookId.value == bookId && audiobookPlayerManager.isBookLoaded()) {
                     // But still sync favorite status from server
                     tingRepository.getFavorites().onSuccess { favs ->
-                        _favoriteBookIds.value = favs.map { it.bookId }.toSet()
+                        _favoriteBookIds.value = favs.map { it.id }.toSet()
                         _allBooks.value = _allBooks.value.map { it.copy(isFavorite = _favoriteBookIds.value.contains(it.id)) }
                     }
                     return@launch
@@ -276,7 +276,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 // Sync favorites from server
                 tingRepository.getFavorites().onSuccess { favs ->
-                    _favoriteBookIds.value = favs.map { it.bookId }.toSet()
+                    _favoriteBookIds.value = favs.map { it.id }.toSet()
                     _allBooks.value = _allBooks.value.map { it.copy(isFavorite = _favoriteBookIds.value.contains(it.id)) }
                 }
                 tingRepository.getChapters(bookId).onSuccess { chapters ->
@@ -312,7 +312,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             } else {
                 // Re-sync favorites from server to ensure consistency
                 tingRepository.getFavorites().onSuccess { favs ->
-                    val serverFavIds = favs.map { it.bookId }.toSet()
+                    val serverFavIds = favs.map { it.id }.toSet()
                     _favoriteBookIds.value = serverFavIds
                     _allBooks.value = _allBooks.value.map { it.copy(isFavorite = serverFavIds.contains(it.id)) }
                 }
@@ -333,7 +333,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun syncFavoriteFromServer(bookId: String) {
         viewModelScope.launch {
             tingRepository.getFavorites().onSuccess { favs ->
-                val serverFavIds = favs.map { it.bookId }.toSet()
+                val serverFavIds = favs.map { it.id }.toSet()
                 _favoriteBookIds.value = serverFavIds
                 _allBooks.value = _allBooks.value.map { it.copy(isFavorite = serverFavIds.contains(it.id)) }
             }
