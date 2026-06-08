@@ -25,6 +25,7 @@ import com.yueyin.ui.MainViewModel
 import com.yueyin.ui.components.MiniPlayer
 import com.yueyin.ui.navi.Screen
 import com.yueyin.ui.screens.discover.DiscoverScreen
+import com.yueyin.ui.screens.discover.LibraryDetailScreen
 import com.yueyin.ui.screens.library.LibraryScreen
 import com.yueyin.ui.screens.login.LoginScreen
 import com.yueyin.ui.screens.player.PlayerScreen
@@ -103,11 +104,16 @@ fun YueYinMain(viewModel: MainViewModel) {
                 }
             }) { pv ->
                 NavHost(navController = navController, startDestination = Screen.Discover.route, modifier = Modifier.fillMaxSize().padding(pv)) {
-                    composable(Screen.Discover.route) { DiscoverScreen(viewModel, onBookClick = { navController.navigate(Screen.Player.createRoute(it)) }, onSettingsClick = { navController.navigate(Screen.Profile.route) }) }
+                    composable(Screen.Discover.route) { DiscoverScreen(viewModel, onBookClick = { navController.navigate(Screen.Player.createRoute(it)) }, onSettingsClick = { navController.navigate(Screen.Profile.route) }, onLibraryMore = { libId, libName -> navController.navigate(Screen.LibraryDetail.createRoute(libId, libName)) }) }
                     composable(Screen.Library.route) { LibraryScreen(viewModel, onBookClick = { navController.navigate(Screen.Player.createRoute(it)) }) }
                     composable(Screen.Search.route) { SearchScreen(viewModel, onBookClick = { navController.navigate(Screen.Player.createRoute(it)) }) }
                     composable(Screen.Profile.route) { ProfileScreen(viewModel) }
                     composable(Screen.Player.route) { val bid = it.arguments?.getString("bookId") ?: ""; PlayerScreen(bid, viewModel) { navController.popBackStack() } }
+                    composable(Screen.LibraryDetail.route) {
+                        val libId = it.arguments?.getString("libraryId") ?: ""
+                        val libName = it.arguments?.getString("libraryName") ?: ""
+                        LibraryDetailScreen(libId, libName, viewModel, onBookClick = { bid -> navController.navigate(Screen.Player.createRoute(bid)) }, onBack = { navController.popBackStack() })
+                    }
                 }
             }
         }

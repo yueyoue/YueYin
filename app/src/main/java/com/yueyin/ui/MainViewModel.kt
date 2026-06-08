@@ -57,6 +57,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _libraryBooksLoading = MutableStateFlow(false)
     val libraryBooksLoading: StateFlow<Boolean> = _libraryBooksLoading.asStateFlow()
 
+    private val _libraryDetailBooks = MutableStateFlow<List<TingBook>>(emptyList())
+    val libraryDetailBooks: StateFlow<List<TingBook>> = _libraryDetailBooks.asStateFlow()
+    private val _libraryDetailLoading = MutableStateFlow(false)
+    val libraryDetailLoading: StateFlow<Boolean> = _libraryDetailLoading.asStateFlow()
+
     private val _stats = MutableStateFlow(TingStats())
     val stats: StateFlow<TingStats> = _stats.asStateFlow()
     private val _favoriteBookIds = MutableStateFlow<Set<String>>(emptySet())
@@ -211,6 +216,25 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun setSelectedGenre(genre: String) { _selectedGenre.value = genre }
+
+    fun loadLibraryDetailBooks(libraryId: String) {
+        viewModelScope.launch {
+            _libraryDetailLoading.value = true
+            try {
+                tingRepository.getBooksByLibrary(libraryId).onSuccess { books ->
+                    val resolved = books.map { b ->
+                        val resolvedCover = tingRepository.getCoverUrl(b.coverUrl, b.id)
+                        b.copy(
+                            coverUrl = resolvedCover,
+                            isFavorite = _favoriteBookIds.value.contains(b.id)
+                        )
+                    }.sortedByDescending { it.createdAt ?: "" }
+                    _libraryDetailBooks.value = resolved
+                }
+            } catch (_: Exception) {}
+            finally { _libraryDetailLoading.value = false }
+        }
+    }
 
     fun getFilteredBooks(): List<TingBook> {
         val g = _selectedGenre.value; val books = _allBooks.value

@@ -33,7 +33,7 @@ import com.yueyin.ui.MainViewModel
 import com.yueyin.ui.theme.*
 
 @Composable
-fun DiscoverScreen(viewModel: MainViewModel, onBookClick: (String) -> Unit, onSettingsClick: () -> Unit) {
+fun DiscoverScreen(viewModel: MainViewModel, onBookClick: (String) -> Unit, onSettingsClick: () -> Unit, onLibraryMore: (String, String) -> Unit = { _, _ -> }) {
     val allBooks by viewModel.allBooks.collectAsState()
     val bookProgress by viewModel.bookProgress.collectAsState()
     val booksLoading by viewModel.booksLoading.collectAsState()
@@ -97,7 +97,15 @@ fun DiscoverScreen(viewModel: MainViewModel, onBookClick: (String) -> Unit, onSe
                     item {
                         Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 14.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                             Text("📚 ${lib.name}", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                            Text("${books.size}本", fontSize = 12.sp, color = OnSurfaceVariant)
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text("${books.size}本", fontSize = 12.sp, color = OnSurfaceVariant)
+                                Surface(modifier = Modifier.clickable { onLibraryMore(lib.id, lib.name) }, shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
+                                    Row(modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                                        Text("更多", fontSize = 11.sp, fontWeight = FontWeight.Medium, color = OnSurfaceVariant)
+                                        Icon(Icons.Default.ChevronRight, null, modifier = Modifier.size(14.dp), tint = OnSurfaceVariant)
+                                    }
+                                }
+                            }
                         }
                     }
                     // Show books in a 3-column grid (3 rows × 3 cols = 9 books)
