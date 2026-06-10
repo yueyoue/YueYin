@@ -37,14 +37,29 @@ import com.yueyin.ui.MainViewModel
 import com.yueyin.ui.theme.*
 
 @Composable
-fun Seek15Icon(isForward: Boolean, modifier: Modifier = Modifier) {
-    Box(modifier = modifier.size(28.dp), contentAlignment = Alignment.Center) {
-        Icon(
-            imageVector = Icons.Default.Autorenew,
-            contentDescription = null,
-            modifier = Modifier.size(24.dp).then(if (isForward) Modifier else Modifier.graphicsLayer { scaleX = -1f })
-        )
-        Text("15", fontSize = 8.sp, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.offset(y = 1.dp))
+fun Seek15Button(isForward: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier.size(48.dp),
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.surfaceVariant
+    ) {
+        Box(contentAlignment = Alignment.Center, modifier = Modifier.clickable(onClick = onClick)) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(
+                    imageVector = if (isForward) Icons.Default.Forward else Icons.Default.Replay,
+                    contentDescription = if (isForward) "前进15秒" else "后退15秒",
+                    modifier = Modifier.size(24.dp),
+                    tint = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    "15",
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.offset(y = (-2).dp)
+                )
+            }
+        }
     }
 }
 
@@ -166,11 +181,7 @@ fun PlayerScreen(bookId: String, viewModel: MainViewModel, onBack: () -> Unit) {
 
             // Controls: -15s | prev | play/pause | next | +15s
             Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = { ap.rewind15s() }, modifier = Modifier.size(48.dp)) {
-                    Surface(modifier = Modifier.size(46.dp), shape = CircleShape, color = MaterialTheme.colorScheme.surfaceVariant) {
-                        Box(contentAlignment = Alignment.Center) { Seek15Icon(isForward = false) }
-                    }
-                }
+                Seek15Button(isForward = false, onClick = { ap.rewind15s() })
                 IconButton(onClick = { ap.skipPrevious() }, modifier = Modifier.size(44.dp)) {
                     Icon(Icons.Default.SkipPrevious, "上一章", modifier = Modifier.size(28.dp), tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
                 }
@@ -182,11 +193,7 @@ fun PlayerScreen(bookId: String, viewModel: MainViewModel, onBack: () -> Unit) {
                 IconButton(onClick = { ap.skipNext() }, modifier = Modifier.size(44.dp)) {
                     Icon(Icons.Default.SkipNext, "下一章", modifier = Modifier.size(28.dp), tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
                 }
-                IconButton(onClick = { ap.forward15s() }, modifier = Modifier.size(48.dp)) {
-                    Surface(modifier = Modifier.size(46.dp), shape = CircleShape, color = MaterialTheme.colorScheme.surfaceVariant) {
-                        Box(contentAlignment = Alignment.Center) { Seek15Icon(isForward = true) }
-                    }
-                }
+                Seek15Button(isForward = true, onClick = { ap.forward15s() })
             }
             Spacer(modifier = Modifier.height(16.dp))
 
