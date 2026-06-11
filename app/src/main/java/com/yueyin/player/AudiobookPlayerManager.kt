@@ -138,14 +138,15 @@ class AudiobookPlayerManager(private val context: Context) {
                     override fun onPlaybackStateChanged(playbackState: Int) {
                         if (playbackState == Player.STATE_READY) {
                             _duration.value = duration
-                            // If player should be playing (playWhenReady=true) but isn't yet, start it.
-                            // This covers the case where a new chapter finishes buffering during background playback.
                             if (_chapters.value.isNotEmpty() && _currentChapterIndex.value >= 0) {
-                                player?.let { if (!it.isPlaying && it.playWhenReady) it.play() }
+                                player?.let { p ->
+                                    if (p.playWhenReady && !p.isPlaying) {
+                                        p.play()
+                                    }
+                                }
                             }
                             updateNotification()
                         }
-                        // When a chapter finishes and no next item, stop
                         if (playbackState == Player.STATE_ENDED) {
                             player?.let { p ->
                                 if (!p.hasNextMediaItem()) {
@@ -156,22 +157,21 @@ class AudiobookPlayerManager(private val context: Context) {
                         }
                     }
                     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-                        // Reset position for new chapter
                         _currentPosition.value = 0L
                         _progress.value = 0f
                         updateCurrentFromPlayer()
-                        // For auto-advance (background/lockscreen), ensure playWhenReady stays true
-                        // so playback resumes once the player finishes buffering the new chapter.
                         if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
-                            player?.play()
+                            player?.let { p ->
+                                p.playWhenReady = true
+                                if (!p.isPlaying) p.play()
+                            }
                         }
-                        // Delay notification update slightly to let player state stabilize
                         scope.launch {
-                            kotlinx.coroutines.delay(500)
+                            kotlinx.coroutines.delay(1000)
                             player?.let {
                                 _duration.value = it.duration.coerceAtLeast(0)
-                                // Belt-and-suspenders: if still not playing after auto-advance, force play
-                                if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO && !it.isPlaying) {
+                                if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO && (!it.isPlaying || !it.playWhenReady)) {
+                                    it.playWhenReady = true
                                     it.play()
                                 }
                             }
@@ -261,9 +261,7 @@ class AudiobookPlayerManager(private val context: Context) {
     fun skipNext() {
         player?.let { p ->
             if (p.hasNextMediaItem()) {
-                // Set play() BEFORE seekToNext() so playWhenReady is true
-                // when the async seek completes and transitions to the new chapter.
-                // This prevents the player from getting stuck in background/lockscreen.
+                p.playWhenReady = true
                 p.play()
                 p.seekToNext()
             }
