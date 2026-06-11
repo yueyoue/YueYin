@@ -1,6 +1,6 @@
 {
-    "versionCode": 18,
-    "versionName": "1.1.8",
-    "apkUrl": "https://github.com/yueyoue/YueYin/releases/download/1.1.8/app-release.apk",
-    "updateLog": "1. 修复切换书籍时播放页闪现上一本书信息的问题\n2. 修复收藏按钮不同步服务器的问题\n3. 版本号升级至 18 / 1.1.8"
+    "versionCode": 22,
+    "versionName": "1.2.2",
+    "apkUrl": "https://github.com/yueyoue/YueYin/releases/download/1.2.2/app-release.apk",
+    "updateLog": "1. 修复后台/锁屏播放跳转下一集卡住不播放的问题\n2. 播放页15秒前进/后退按钮全新设计\n3. 修复版本更新检测不准确的问题"
 }
