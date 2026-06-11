@@ -44,7 +44,7 @@ fun Seek15Icon(isForward: Boolean, modifier: Modifier = Modifier) {
     Image(
         painter = painterResource(id = if (isForward) R.drawable.ic_seek_forward_15 else R.drawable.ic_seek_back_15),
         contentDescription = if (isForward) "前进15秒" else "后退15秒",
-        modifier = modifier.size(56.dp),
+        modifier = modifier.size(32.dp),
         contentScale = ContentScale.Fit
     )
 }

@@ -319,8 +319,8 @@ class AudiobookPlayerManager(private val context: Context) {
                 PlaybackStateCompat.ACTION_FAST_FORWARD or
                 PlaybackStateCompat.ACTION_REWIND
             )
-            .addCustomAction(PlaybackStateCompat.CustomAction.Builder("REWIND_15", "后退15秒", R.drawable.ic_seek_back_15).build())
-            .addCustomAction(PlaybackStateCompat.CustomAction.Builder("FORWARD_15", "前进15秒", R.drawable.ic_seek_forward_15).build())
+            .addCustomAction(PlaybackStateCompat.CustomAction.Builder("REWIND_15", "后退15秒", R.drawable.ic_seek_back_15_notif).build())
+            .addCustomAction(PlaybackStateCompat.CustomAction.Builder("FORWARD_15", "前进15秒", R.drawable.ic_seek_forward_15_notif).build())
             .setState(if (_isPlaying.value) PlaybackStateCompat.STATE_PLAYING else PlaybackStateCompat.STATE_PAUSED, _currentPosition.value, 1.0f)
             .build()
         session.setPlaybackState(state)
@@ -340,9 +340,9 @@ class AudiobookPlayerManager(private val context: Context) {
             .setOngoing(_isPlaying.value).setShowWhen(false).setCategory(NotificationCompat.CATEGORY_TRANSPORT)
             .setStyle(MediaStyle().setMediaSession(session.sessionToken).setShowActionsInCompactView(1, 2, 3))
             .addAction(R.drawable.ic_notif_prev, "上一章", prevPI)
-            .addAction(R.drawable.ic_seek_back_15, "后退15秒", rewindPI)
+            .addAction(R.drawable.ic_seek_back_15_notif, "后退15秒", rewindPI)
             .addAction(if (_isPlaying.value) R.drawable.ic_notif_pause else R.drawable.ic_notif_play, if (_isPlaying.value) "暂停" else "播放", playPausePI)
-            .addAction(R.drawable.ic_seek_forward_15, "前进15秒", forwardPI)
+            .addAction(R.drawable.ic_seek_forward_15_notif, "前进15秒", forwardPI)
             .addAction(R.drawable.ic_notif_next, "下一章", nextPI)
             .build()
         nm.notify(NOTIFICATION_ID, notification)
