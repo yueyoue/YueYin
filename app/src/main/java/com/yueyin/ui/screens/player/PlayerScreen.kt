@@ -1,6 +1,6 @@
 package com.yueyin.ui.screens.player
 
-import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.basicMarquee
@@ -21,16 +21,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -38,72 +34,19 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.yueyin.R
 import com.yueyin.player.AudiobookPlayerManager
 import com.yueyin.ui.MainViewModel
 import com.yueyin.ui.theme.*
 
 @Composable
 fun Seek15Icon(isForward: Boolean, modifier: Modifier = Modifier) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(
-            modifier = modifier.size(46.dp).clip(CircleShape).background(Color(0xFF3D3D3D)),
-            contentAlignment = Alignment.Center
-        ) {
-            Canvas(modifier = Modifier.size(46.dp)) {
-                val strokeWidth = 2.5f.dp.toPx()
-                val arcRadius = 14.dp.toPx()
-                val cx = size.width / 2
-                val cy = size.height / 2 - 1.dp.toPx()
-                val arcRect = androidx.compose.ui.geometry.Rect(
-                    cx - arcRadius, cy - arcRadius,
-                    cx + arcRadius, cy + arcRadius
-                )
-                val startAngle = if (isForward) -210f else 30f
-                val sweepAngle = if (isForward) 240f else -240f
-                drawArc(
-                    color = Color(0xFFCCCCCC),
-                    startAngle = startAngle,
-                    sweepAngle = sweepAngle,
-                    useCenter = false,
-                    style = Stroke(width = strokeWidth, cap = StrokeCap.Round),
-                    topLeft = Offset(arcRect.left, arcRect.top),
-                    size = Size(arcRect.width, arcRect.height)
-                )
-                // Arrowhead
-                val endAngleRad = Math.toRadians((startAngle + sweepAngle).toDouble())
-                val tipX = cx + arcRadius * kotlin.math.cos(endAngleRad).toFloat()
-                val tipY = cy + arcRadius * kotlin.math.sin(endAngleRad).toFloat()
-                val aSize = 5.dp.toPx()
-                val tangentAngle = endAngleRad + Math.PI / 2 * (if (isForward) -1.0 else 1.0)
-                val p1x = tipX - aSize * kotlin.math.cos(tangentAngle - 0.4).toFloat()
-                val p1y = tipY - aSize * kotlin.math.sin(tangentAngle - 0.4).toFloat()
-                val p2x = tipX - aSize * kotlin.math.cos(tangentAngle + 0.4).toFloat()
-                val p2y = tipY - aSize * kotlin.math.sin(tangentAngle + 0.4).toFloat()
-                drawPath(
-                    path = Path().apply {
-                        moveTo(tipX, tipY)
-                        lineTo(p1x, p1y)
-                        lineTo(p2x, p2y)
-                        close()
-                    },
-                    color = Color(0xFFCCCCCC)
-                )
-            }
-            Text(
-                "15",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Black,
-                color = Color.White,
-                modifier = Modifier.offset(y = 3.dp)
-            )
-        }
-        Text(
-            "秒",
-            fontSize = 9.sp,
-            color = Color(0xFF999999),
-            modifier = Modifier.padding(top = 2.dp)
-        )
-    }
+    Image(
+        painter = painterResource(id = if (isForward) R.drawable.ic_seek_forward_15 else R.drawable.ic_seek_back_15),
+        contentDescription = if (isForward) "前进15秒" else "后退15秒",
+        modifier = modifier.size(46.dp),
+        contentScale = ContentScale.Fit
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
