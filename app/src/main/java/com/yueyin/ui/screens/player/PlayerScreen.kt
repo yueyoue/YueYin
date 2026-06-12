@@ -60,6 +60,10 @@ fun PlayerScreen(bookId: String, viewModel: MainViewModel, onBack: () -> Unit) {
     val prog by ap.progress.collectAsState()
     val pos by ap.currentPosition.collectAsState()
     val dur by ap.duration.collectAsState()
+    // Track user drag state to avoid slider fighting with player position updates
+    var isSeeking by remember { mutableStateOf(false) }
+    var seekProgress by remember { mutableFloatStateOf(0f) }
+    val displayProgress = if (isSeeking) seekProgress else prog
     val title by ap.currentBookTitle.collectAsState()
     val author by ap.currentBookAuthor.collectAsState()
     val narrator by ap.currentBookNarrator.collectAsState()
@@ -160,8 +164,23 @@ fun PlayerScreen(bookId: String, viewModel: MainViewModel, onBack: () -> Unit) {
 
             // Progress bar
             Column(modifier = Modifier.padding(horizontal = 30.dp)) {
-                Slider(value = prog, onValueChange = { ap.seekToProgress(it) }, modifier = Modifier.fillMaxWidth(), colors = SliderDefaults.colors(thumbColor = primaryColor, activeTrackColor = primaryColor))
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text(fmtTime(pos), fontSize = 11.sp, color = OnSurfaceVariant); Text("-${fmtTime(dur - pos)}", fontSize = 11.sp, color = OnSurfaceVariant) }
+                Slider(
+                    value = displayProgress,
+                    onValueChange = { newValue ->
+                        isSeeking = true
+                        seekProgress = newValue
+                    },
+                    onValueChangeFinished = {
+                        ap.seekToProgress(seekProgress)
+                        isSeeking = false
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = SliderDefaults.colors(thumbColor = primaryColor, activeTrackColor = primaryColor)
+                )
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(fmtTime(if (isSeeking) (seekProgress * dur).toLong() else pos), fontSize = 11.sp, color = OnSurfaceVariant)
+                    Text("-${fmtTime(dur - (if (isSeeking) (seekProgress * dur).toLong() else pos))}", fontSize = 11.sp, color = OnSurfaceVariant)
+                }
             }
             Spacer(modifier = Modifier.height(8.dp))
 
