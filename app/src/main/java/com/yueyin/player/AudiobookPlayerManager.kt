@@ -151,8 +151,13 @@ class AudiobookPlayerManager(private val context: Context) {
                             player?.let { p ->
                                 if (p.hasNextMediaItem()) {
                                     // Auto-advance to next chapter.
-                                    // Use seekToNext() which sets playWhenReady=true internally.
-                                    // The onMediaItemTransition callback will handle ensuring playback starts.
+                                    // Force playWhenReady=true BEFORE seeking, so ExoPlayer
+                                    // knows we want playback on the next item.
+                                    // This handles the case where WeChat took audio focus,
+                                    // playWhenReady was set to false, and the chapter ended
+                                    // while backgrounded — ExoPlayer won't auto-advance
+                                    // unless playWhenReady is true.
+                                    p.playWhenReady = true
                                     p.seekToNext()
                                 } else {
                                     _isPlaying.value = false
@@ -276,28 +281,40 @@ class AudiobookPlayerManager(private val context: Context) {
         player?.let { p ->
             if (p.isPlaying) {
                 p.pause()
-            } else {
-                // If playWhenReady is true but not playing (stuck state after audio focus loss),
-                // force a reset cycle to break the stuck state
-                if (p.playWhenReady && !p.isPlaying) {
-                    p.playWhenReady = false
-                    scope.launch {
-                        kotlinx.coroutines.delay(200)
-                        player?.let { currentPlayer ->
-                            if (!currentPlayer.isPlaying) {
-                                currentPlayer.playWhenReady = true
-                                currentPlayer.play()
-                                _isPlaying.value = true
-                                updateNotification()
-                            }
+            } else if (p.playbackState == Player.STATE_ENDED) {
+                // Chapter ended while paused (e.g. audio focus lost to WeChat).
+                // The player is at the end of the current chapter — we need to advance
+                // to the next one and start playing.
+                if (p.hasNextMediaItem()) {
+                    p.playWhenReady = true
+                    p.seekToNext()
+                } else {
+                    // Last chapter ended, restart from beginning
+                    p.seekTo(0)
+                    p.playWhenReady = true
+                    p.prepare()
+                    p.play()
+                }
+            } else if (p.playWhenReady && !p.isPlaying) {
+                // playWhenReady is true but not playing (stuck state after audio focus loss).
+                // Force a reset cycle to break the stuck state.
+                p.playWhenReady = false
+                scope.launch {
+                    kotlinx.coroutines.delay(200)
+                    player?.let { currentPlayer ->
+                        if (!currentPlayer.isPlaying && currentPlayer.playbackState != Player.STATE_ENDED) {
+                            currentPlayer.playWhenReady = true
+                            currentPlayer.play()
+                            _isPlaying.value = true
+                            updateNotification()
                         }
                     }
-                } else {
-                    p.playWhenReady = true
-                    p.play()
-                    _isPlaying.value = true
-                    updateNotification()
                 }
+            } else {
+                p.playWhenReady = true
+                p.play()
+                _isPlaying.value = true
+                updateNotification()
             }
         }
     }
