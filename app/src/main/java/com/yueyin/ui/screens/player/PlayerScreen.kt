@@ -39,6 +39,48 @@ import com.yueyin.player.AudiobookPlayerManager
 import com.yueyin.ui.MainViewModel
 import com.yueyin.ui.theme.*
 
+/**
+ * Standalone seek bar that manages its own drag state internally.
+ * Only calls [onSeekFinished] when the user releases the thumb.
+ * During drag, the slider tracks the finger position locally and is
+ * immune to external [progress] updates — no stuttering.
+ */
+@Composable
+private fun SeekBar(
+    progress: Float,
+    onSeekFinished: (Float) -> Unit,
+    modifier: Modifier = Modifier,
+    thumbColor: Color = MaterialTheme.colorScheme.primary,
+    trackColor: Color = MaterialTheme.colorScheme.primary,
+) {
+    // Snapshot the progress at drag start so we can compare later
+    var dragStartProgress by remember { mutableFloatStateOf(progress) }
+    var isSeeking by remember { mutableStateOf(false) }
+    var seekPosition by remember { mutableFloatStateOf(progress) }
+
+    // Only update displayed value from outside when NOT dragging
+    val displayed = if (isSeeking) seekPosition else progress
+
+    // When a drag starts, snapshot the current progress
+    LaunchedEffect(isSeeking) {
+        if (isSeeking) dragStartProgress = progress
+    }
+
+    Slider(
+        value = displayed,
+        onValueChange = { newValue ->
+            if (!isSeeking) isSeeking = true
+            seekPosition = newValue
+        },
+        onValueChangeFinished = {
+            onSeekFinished(seekPosition)
+            isSeeking = false
+        },
+        modifier = modifier,
+        colors = SliderDefaults.colors(thumbColor = thumbColor, activeTrackColor = trackColor),
+    )
+}
+
 @Composable
 fun Seek15Icon(isForward: Boolean, modifier: Modifier = Modifier) {
     Image(
@@ -60,10 +102,6 @@ fun PlayerScreen(bookId: String, viewModel: MainViewModel, onBack: () -> Unit) {
     val prog by ap.progress.collectAsState()
     val pos by ap.currentPosition.collectAsState()
     val dur by ap.duration.collectAsState()
-    // Track user drag state to avoid slider fighting with player position updates
-    var isSeeking by remember { mutableStateOf(false) }
-    var seekProgress by remember { mutableFloatStateOf(0f) }
-    val displayProgress = if (isSeeking) seekProgress else prog
     val title by ap.currentBookTitle.collectAsState()
     val author by ap.currentBookAuthor.collectAsState()
     val narrator by ap.currentBookNarrator.collectAsState()
@@ -164,22 +202,14 @@ fun PlayerScreen(bookId: String, viewModel: MainViewModel, onBack: () -> Unit) {
 
             // Progress bar
             Column(modifier = Modifier.padding(horizontal = 30.dp)) {
-                Slider(
-                    value = displayProgress,
-                    onValueChange = { newValue ->
-                        isSeeking = true
-                        seekProgress = newValue
-                    },
-                    onValueChangeFinished = {
-                        ap.seekToProgress(seekProgress)
-                        isSeeking = false
-                    },
+                SeekBar(
+                    progress = prog,
+                    onSeekFinished = { ap.seekToProgress(it) },
                     modifier = Modifier.fillMaxWidth(),
-                    colors = SliderDefaults.colors(thumbColor = primaryColor, activeTrackColor = primaryColor)
                 )
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text(fmtTime(if (isSeeking) (seekProgress * dur).toLong() else pos), fontSize = 11.sp, color = OnSurfaceVariant)
-                    Text("-${fmtTime(dur - (if (isSeeking) (seekProgress * dur).toLong() else pos))}", fontSize = 11.sp, color = OnSurfaceVariant)
+                    Text(fmtTime(pos), fontSize = 11.sp, color = OnSurfaceVariant)
+                    Text("-${fmtTime(dur - pos)}", fontSize = 11.sp, color = OnSurfaceVariant)
                 }
             }
             Spacer(modifier = Modifier.height(8.dp))
