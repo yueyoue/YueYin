@@ -44,7 +44,7 @@ fun Seek15Icon(isForward: Boolean, modifier: Modifier = Modifier) {
     Image(
         painter = painterResource(id = if (isForward) R.drawable.ic_seek_forward_15 else R.drawable.ic_seek_back_15),
         contentDescription = if (isForward) "前进15秒" else "后退15秒",
-        modifier = modifier.size(32.dp),
+        modifier = modifier.size(24.dp),
         contentScale = ContentScale.Fit
     )
 }
@@ -167,7 +167,7 @@ fun PlayerScreen(bookId: String, viewModel: MainViewModel, onBack: () -> Unit) {
 
             // Controls: -15s | prev | play/pause | next | +15s
             Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = { ap.rewind15s() }, modifier = Modifier.size(56.dp)) {
+                IconButton(onClick = { ap.rewind15s() }, modifier = Modifier.size(40.dp)) {
                     Seek15Icon(isForward = false)
                 }
                 IconButton(onClick = { ap.skipPrevious() }, modifier = Modifier.size(44.dp)) {
@@ -181,7 +181,7 @@ fun PlayerScreen(bookId: String, viewModel: MainViewModel, onBack: () -> Unit) {
                 IconButton(onClick = { ap.skipNext() }, modifier = Modifier.size(44.dp)) {
                     Icon(Icons.Default.SkipNext, "下一章", modifier = Modifier.size(28.dp), tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
                 }
-                IconButton(onClick = { ap.forward15s() }, modifier = Modifier.size(56.dp)) {
+                IconButton(onClick = { ap.forward15s() }, modifier = Modifier.size(40.dp)) {
                     Seek15Icon(isForward = true)
                 }
             }

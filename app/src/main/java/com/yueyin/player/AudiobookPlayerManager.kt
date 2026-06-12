@@ -149,7 +149,13 @@ class AudiobookPlayerManager(private val context: Context) {
                         }
                         if (playbackState == Player.STATE_ENDED) {
                             player?.let { p ->
-                                if (!p.hasNextMediaItem()) {
+                                if (p.hasNextMediaItem()) {
+                                    // Auto-advance: don't set isPlaying to false,
+                                    // let onMediaItemTransition handle the next chapter
+                                    p.playWhenReady = true
+                                    p.seekToNext()
+                                    p.play()
+                                } else {
                                     _isPlaying.value = false
                                     updateNotification()
                                 }
@@ -168,11 +174,18 @@ class AudiobookPlayerManager(private val context: Context) {
                         }
                         scope.launch {
                             kotlinx.coroutines.delay(1000)
-                            player?.let {
-                                _duration.value = it.duration.coerceAtLeast(0)
-                                if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO && (!it.isPlaying || !it.playWhenReady)) {
-                                    it.playWhenReady = true
-                                    it.play()
+                            player?.let { p ->
+                                _duration.value = p.duration.coerceAtLeast(0)
+                                if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
+                                    if (!p.isPlaying || !p.playWhenReady) {
+                                        // Force play: reset and retry to handle stuck state
+                                        // (e.g. after audio focus loss when WeChat took over)
+                                        p.playWhenReady = false
+                                        kotlinx.coroutines.delay(150)
+                                        p.playWhenReady = true
+                                        p.play()
+                                    }
+                                    _isPlaying.value = true
                                 }
                             }
                             updateNotification()
@@ -240,7 +253,29 @@ class AudiobookPlayerManager(private val context: Context) {
         _currentChapterIndex.value = chapterIndex; _currentChapter.value = chs[chapterIndex]; updateNotification()
     }
 
-    fun togglePlayPause() { player?.let { if (it.isPlaying) it.pause() else it.play() } }
+    fun togglePlayPause() {
+        player?.let { p ->
+            if (p.isPlaying) {
+                p.pause()
+            } else {
+                // If playWhenReady is true but not playing (stuck state after audio focus loss),
+                // reset the state to force a fresh play attempt
+                if (p.playWhenReady) {
+                    p.playWhenReady = false
+                    scope.launch {
+                        kotlinx.coroutines.delay(100)
+                        p.play()
+                        _isPlaying.value = true
+                        updateNotification()
+                    }
+                } else {
+                    p.play()
+                    _isPlaying.value = true
+                    updateNotification()
+                }
+            }
+        }
+    }
     fun forcePause() { try { player?.let { if (it.isPlaying) it.pause() } } catch (_: Exception) {} }
     fun forward15s() {
         player?.let { p ->
