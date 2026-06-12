@@ -32,11 +32,11 @@ object UpdateChecker {
     private const val GITHUB_VERSION_URL = "https://raw.githubusercontent.com/yueyoue/YueYin/main/update/version.json"
 
     suspend fun check(currentVersionCode: Int): UpdateInfo? = withContext(Dispatchers.IO) {
-        // Try custom server first, then GitHub as fallback
+        // Try both custom server and GitHub, pick the newest version
         val server = tryServer(VERSION_URL, currentVersionCode)
-        if (server != null) return@withContext server
-        // Fallback to GitHub
-        tryServer(GITHUB_VERSION_URL, currentVersionCode)
+        val github = tryServer(GITHUB_VERSION_URL, currentVersionCode)
+        val candidates = listOfNotNull(server, github)
+        candidates.maxByOrNull { it.versionCode }
     }
 
     private suspend fun tryServer(url: String, currentVersionCode: Int): UpdateInfo? {

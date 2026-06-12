@@ -1,6 +1,6 @@
 {
-    "versionCode": 22,
-    "versionName": "1.2.2",
-    "apkUrl": "https://github.com/yueyoue/YueYin/releases/download/1.2.2/app-release.apk",
-    "updateLog": "1. 修复后台/锁屏播放跳转下一集卡住不播放的问题\n2. 播放页15秒前进/后退按钮全新设计\n3. 修复版本更新检测不准确的问题"
+    "versionCode": 25,
+    "versionName": "1.2.5",
+    "apkUrl": "https://github.com/yueyoue/YueYin/releases/download/1.2.5/app-release.apk",
+    "updateLog": "1. 播放页/锁屏15秒前进后退按钮尺寸优化\n2. 修复后台播放切换微信后自动切集不播放的问题\n3. 版本更新检测修复"
 }
