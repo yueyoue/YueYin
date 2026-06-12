@@ -150,11 +150,10 @@ class AudiobookPlayerManager(private val context: Context) {
                         if (playbackState == Player.STATE_ENDED) {
                             player?.let { p ->
                                 if (p.hasNextMediaItem()) {
-                                    // Auto-advance: don't set isPlaying to false,
-                                    // let onMediaItemTransition handle the next chapter
-                                    p.playWhenReady = true
+                                    // Auto-advance to next chapter.
+                                    // Use seekToNext() which sets playWhenReady=true internally.
+                                    // The onMediaItemTransition callback will handle ensuring playback starts.
                                     p.seekToNext()
-                                    p.play()
                                 } else {
                                     _isPlaying.value = false
                                     updateNotification()
@@ -167,26 +166,46 @@ class AudiobookPlayerManager(private val context: Context) {
                         _progress.value = 0f
                         updateCurrentFromPlayer()
                         if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
+                            // Ensure playback starts after auto-advance.
+                            // After audio focus loss (e.g. WeChat), the player may be in a stuck
+                            // state where playWhenReady is true but playback doesn't start.
+                            // Use a retry mechanism to force recovery.
                             player?.let { p ->
                                 p.playWhenReady = true
-                                if (!p.isPlaying) p.play()
+                                if (!p.isPlaying) {
+                                    p.play()
+                                }
+                                // Retry with coroutine to handle stuck state after audio focus loss
+                                scope.launch {
+                                    repeat(5) { attempt ->
+                                        if (!isActive) return@launch
+                                        kotlinx.coroutines.delay(600)
+                                        val currentPlayer = player ?: return@launch
+                                        if (currentPlayer.isPlaying) return@launch
+                                        // Player is not playing — force recovery
+                                        if (currentPlayer.playbackState == Player.STATE_READY) {
+                                            currentPlayer.playWhenReady = true
+                                            currentPlayer.play()
+                                        } else if (currentPlayer.playbackState == Player.STATE_BUFFERING) {
+                                            // Still buffering, just ensure playWhenReady is set
+                                            currentPlayer.playWhenReady = true
+                                        } else if (attempt >= 2) {
+                                            // After multiple retries, try a harder reset:
+                                            // toggle playWhenReady off then on to force ExoPlayer
+                                            // to re-evaluate its state (especially after audio focus loss)
+                                            currentPlayer.playWhenReady = false
+                                            kotlinx.coroutines.delay(200)
+                                            currentPlayer.playWhenReady = true
+                                            currentPlayer.play()
+                                        }
+                                    }
+                                }
                             }
                         }
                         scope.launch {
-                            kotlinx.coroutines.delay(1000)
+                            kotlinx.coroutines.delay(500)
                             player?.let { p ->
                                 _duration.value = p.duration.coerceAtLeast(0)
-                                if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
-                                    if (!p.isPlaying || !p.playWhenReady) {
-                                        // Force play: reset and retry to handle stuck state
-                                        // (e.g. after audio focus loss when WeChat took over)
-                                        p.playWhenReady = false
-                                        kotlinx.coroutines.delay(150)
-                                        p.playWhenReady = true
-                                        p.play()
-                                    }
-                                    _isPlaying.value = true
-                                }
                             }
                             updateNotification()
                         }
@@ -259,16 +278,22 @@ class AudiobookPlayerManager(private val context: Context) {
                 p.pause()
             } else {
                 // If playWhenReady is true but not playing (stuck state after audio focus loss),
-                // reset the state to force a fresh play attempt
-                if (p.playWhenReady) {
+                // force a reset cycle to break the stuck state
+                if (p.playWhenReady && !p.isPlaying) {
                     p.playWhenReady = false
                     scope.launch {
-                        kotlinx.coroutines.delay(100)
-                        p.play()
-                        _isPlaying.value = true
-                        updateNotification()
+                        kotlinx.coroutines.delay(200)
+                        player?.let { currentPlayer ->
+                            if (!currentPlayer.isPlaying) {
+                                currentPlayer.playWhenReady = true
+                                currentPlayer.play()
+                                _isPlaying.value = true
+                                updateNotification()
+                            }
+                        }
                     }
                 } else {
+                    p.playWhenReady = true
                     p.play()
                     _isPlaying.value = true
                     updateNotification()
@@ -297,8 +322,9 @@ class AudiobookPlayerManager(private val context: Context) {
         player?.let { p ->
             if (p.hasNextMediaItem()) {
                 p.playWhenReady = true
-                p.play()
                 p.seekToNext()
+                // Don't call play() immediately after seekToNext —
+                // let the onMediaItemTransition retry mechanism handle it
             }
         }
         updateCurrentFromPlayer()
