@@ -5,6 +5,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.drag
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -24,8 +27,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -40,14 +45,12 @@ import com.yueyin.ui.MainViewModel
 import com.yueyin.ui.theme.*
 
 /**
- * Standalone seek bar that manages its own drag state internally.
- * Only calls [onSeekFinished] when the user releases the thumb.
- * During drag, the slider tracks the finger position locally and is
- * immune to external [progress] updates — no stuttering.
+ * Custom seek bar using raw pointer input.
+ * Completely decoupled from Material3 Slider to avoid gesture conflicts
+ * with the HorizontalPager and to give full control over drag tracking.
  *
- * After seek, the slider stays at the seek position until ExoPlayer's
- * position catches up (prevents the slider from jumping back to the
- * old position and then forward to the new one).
+ * During drag: the bar tracks the finger precisely, ExoPlayer updates are ignored.
+ * After release: stays at seek position until ExoPlayer catches up (no jump-back).
  */
 @Composable
 private fun SeekBar(
@@ -59,13 +62,12 @@ private fun SeekBar(
     trackColor: Color = MaterialTheme.colorScheme.primary,
 ) {
     var isDragging by remember { mutableStateOf(false) }
-    var seekPosition by remember { mutableFloatStateOf(progress) }
+    var dragPosition by remember { mutableFloatStateOf(0f) }
     var isSeekPending by remember { mutableStateOf(false) }
     var seekTargetMs by remember { mutableLongStateOf(0L) }
+    val density = LocalDensity.current
 
-    val displayed = if (isDragging || isSeekPending) seekPosition else progress
-
-    // Wait for ExoPlayer position to catch up after seek
+    // After seek, wait for ExoPlayer position to catch up
     LaunchedEffect(seekTargetMs, isSeekPending) {
         if (!isSeekPending || seekTargetMs == 0L) return@LaunchedEffect
         var elapsed = 0L
@@ -78,22 +80,80 @@ private fun SeekBar(
         isSeekPending = false
     }
 
-    Slider(
-        value = displayed,
-        onValueChange = { newValue ->
-            isDragging = true
-            seekPosition = newValue
-        },
-        onValueChangeFinished = {
-            isDragging = false
-            isSeekPending = true
-            val dur = ap.duration.value
-            seekTargetMs = (seekPosition * dur).toLong()
-            onSeekFinished(seekPosition)
-        },
-        modifier = modifier,
-        colors = SliderDefaults.colors(thumbColor = thumbColor, activeTrackColor = trackColor),
-    )
+    val displayed = if (isDragging || isSeekPending) dragPosition else progress
+    val barHeight = 36.dp  // generous touch target
+    val trackHeight = 4.dp
+    val thumbRadius = 8.dp
+
+    Box(modifier = modifier.height(barHeight)) {
+        BoxWithConstraints(modifier = Modifier
+            .fillMaxWidth()
+            .height(barHeight)
+            .pointerInput(Unit) {
+                val touchSlop = viewConfiguration.touchSlop
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    val startX = down.position.x
+                    var isDrag = false
+                    drag(down.id) { change ->
+                        val dx = kotlin.math.abs(change.position.x - startX)
+                        if (dx > touchSlop) isDrag = true
+                        if (isDrag) {
+                            if (!isDragging) isDragging = true
+                            val delta = change.positionChange().x / size.width.toFloat()
+                            dragPosition = (dragPosition + delta).coerceIn(0f, 1f)
+                            change.consume()
+                        }
+                    }
+                    val totalWidth = size.width.toFloat()
+                    if (isDrag) {
+                        // Drag finished
+                        isDragging = false
+                        isSeekPending = true
+                        val dur = ap.duration.value
+                        seekTargetMs = (dragPosition * dur).toLong()
+                        onSeekFinished(dragPosition)
+                    } else {
+                        // Tap finished
+                        val target = (startX / totalWidth).coerceIn(0f, 1f)
+                        dragPosition = target
+                        isSeekPending = true
+                        val dur = ap.duration.value
+                        seekTargetMs = (target * dur).toLong()
+                        onSeekFinished(target)
+                    }
+                }
+            }
+        ) {
+            // Background track (full width, centered vertically)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(trackHeight)
+                    .align(Alignment.CenterStart)
+                    .clip(RoundedCornerShape(trackHeight / 2))
+                    .background(trackColor.copy(alpha = 0.2f))
+            )
+            // Active track (filled portion)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(fraction = displayed)
+                    .height(trackHeight)
+                    .align(Alignment.CenterStart)
+                    .clip(RoundedCornerShape(trackHeight / 2))
+                    .background(trackColor)
+            )
+            // Thumb
+            Box(
+                modifier = Modifier
+                    .offset(x = with(density) { (displayed * constraints.maxWidth).toDp() - thumbRadius })
+                    .size(thumbRadius * 2)
+                    .align(Alignment.CenterStart)
+                    .clip(CircleShape)
+                    .background(thumbColor)
+            )
+        }
+    }
 }
 
 @Composable
