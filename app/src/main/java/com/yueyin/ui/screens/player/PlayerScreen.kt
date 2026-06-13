@@ -1,8 +1,12 @@
 package com.yueyin.ui.screens.player
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.gestures.forEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.horizontalDrag
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -21,8 +25,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -50,6 +60,7 @@ import com.yueyin.ui.theme.*
  * old position and then forward to the new one).
  */
 @Composable
+@Composable
 private fun SeekBar(
     progress: Float,
     onSeekFinished: (Float) -> Unit,
@@ -60,13 +71,13 @@ private fun SeekBar(
     trackColor: Color = MaterialTheme.colorScheme.primary,
 ) {
     var isDragging by remember { mutableStateOf(false) }
-    var seekPosition by remember { mutableFloatStateOf(progress) }
+    var dragPosition by remember { mutableFloatStateOf(0f) }
     var isSeekPending by remember { mutableStateOf(false) }
     var seekTargetMs by remember { mutableLongStateOf(0L) }
 
-    val displayed = if (isDragging || isSeekPending) seekPosition else progress
+    val displayed = if (isDragging || isSeekPending) dragPosition else progress
 
-    // Wait for ExoPlayer position to catch up after seek
+    // After seek, wait for ExoPlayer to catch up
     LaunchedEffect(seekTargetMs, isSeekPending) {
         if (!isSeekPending || seekTargetMs == 0L) return@LaunchedEffect
         var elapsed = 0L
@@ -79,26 +90,79 @@ private fun SeekBar(
         isSeekPending = false
     }
 
-    Slider(
-        value = displayed,
-        onValueChange = { newValue ->
-            if (!isDragging) {
-                isDragging = true
-                onDraggingChanged?.invoke(true)
+    val density = LocalDensity.current
+    val trackColorInactive = trackColor.copy(alpha = 0.2f)
+    val trackHeightDp = 4.dp
+    val thumbRadiusDp = 7.dp
+    val touchHeightDp = 36.dp
+
+    Canvas(
+        modifier = modifier
+            .height(touchHeightDp)
+            .fillMaxWidth()
+            .pointerInput(Unit) {
+                val touchSlop = viewConfiguration.touchSlop
+                forEachGesture {
+                    awaitPointerEventScope {
+                        val down = awaitFirstDown(requireUnconsumed = false)
+                        val startX = down.position.x
+                        var isDrag = false
+                        horizontalDrag(down.id) { change ->
+                            val dx = kotlin.math.abs(change.position.x - startX)
+                            if (dx > touchSlop) isDrag = true
+                            if (isDrag) {
+                                if (!isDragging) {
+                                    isDragging = true
+                                    onDraggingChanged?.invoke(true)
+                                }
+                                val delta = change.positionChange().x / size.width.toFloat()
+                                dragPosition = (dragPosition + delta).coerceIn(0f, 1f)
+                                change.consume()
+                            }
+                        }
+                        // Drag ended — check if it was a tap or drag
+                        if (!isDrag) {
+                            // It was a tap, not a drag
+                            dragPosition = (startX / size.width.toFloat()).coerceIn(0f, 1f)
+                        }
+                        isDragging = false
+                        onDraggingChanged?.invoke(false)
+                        isSeekPending = true
+                        val dur = ap.duration.value
+                        seekTargetMs = (dragPosition * dur).toLong()
+                        onSeekFinished(dragPosition)
+                    }
+                }
             }
-            seekPosition = newValue
-        },
-        onValueChangeFinished = {
-            isDragging = false
-            onDraggingChanged?.invoke(false)
-            isSeekPending = true
-            val dur = ap.duration.value
-            seekTargetMs = (seekPosition * dur).toLong()
-            onSeekFinished(seekPosition)
-        },
-        modifier = modifier,
-        colors = SliderDefaults.colors(thumbColor = thumbColor, activeTrackColor = trackColor),
-    )
+    ) {
+        val w = size.width
+        val h = size.height
+        val trackY = h / 2f
+        val trackH = trackHeightDp.toPx()
+        val thumbR = thumbRadiusDp.toPx()
+
+        // Background track
+        drawRoundRect(
+            color = trackColorInactive,
+            topLeft = Offset(0f, trackY - trackH / 2f),
+            size = Size(w, trackH),
+            cornerRadius = CornerRadius(trackH / 2f)
+        )
+        // Active track
+        val activeW = w * displayed
+        drawRoundRect(
+            color = trackColor,
+            topLeft = Offset(0f, trackY - trackH / 2f),
+            size = Size(activeW, trackH),
+            cornerRadius = CornerRadius(trackH / 2f)
+        )
+        // Thumb
+        drawCircle(
+            color = thumbColor,
+            radius = thumbR,
+            center = Offset(activeW, trackY)
+        )
+    }
 }
 
 @Composable
