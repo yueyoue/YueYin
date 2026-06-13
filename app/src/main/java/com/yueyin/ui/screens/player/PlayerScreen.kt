@@ -50,7 +50,6 @@ import com.yueyin.ui.theme.*
  * old position and then forward to the new one).
  */
 @Composable
-@Composable
 private fun SeekBar(
     progress: Float,
     onSeekFinished: (Float) -> Unit,
@@ -66,8 +65,10 @@ private fun SeekBar(
     var seekTargetMs by remember { mutableLongStateOf(0L) }
 
     // Sync seekPosition from progress when NOT dragging (so drag starts from current position)
-    if (!isDragging && !isSeekPending) {
-        seekPosition = progress
+    SideEffect {
+        if (!isDragging && !isSeekPending) {
+            seekPosition = progress
+        }
     }
 
     val displayed = if (isDragging || isSeekPending) seekPosition else progress
