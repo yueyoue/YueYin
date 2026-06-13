@@ -50,7 +50,6 @@ import com.yueyin.ui.theme.*
  * old position and then forward to the new one).
  */
 @Composable
-@Composable
 private fun SeekBar(
     progress: Float,
     onSeekFinished: (Float) -> Unit,
@@ -61,12 +60,31 @@ private fun SeekBar(
     trackColor: Color = MaterialTheme.colorScheme.primary,
 ) {
     var isDragging by remember { mutableStateOf(false) }
+    // The position the slider thumb shows
     var sliderPosition by remember { mutableFloatStateOf(progress) }
+    // After a seek, latch to the seek target until ExoPlayer catches up
+    var seekLatch by remember { mutableStateOf<Float?>(null) }
+    // Threshold: once player progress is within 1% of seek target, resume tracking
+    val latchThreshold = 0.01f
 
-    // Update sliderPosition from progress when not dragging
-    LaunchedEffect(progress, isDragging) {
+    // Sync slider position from player progress when not dragging and not latched
+    LaunchedEffect(progress) {
         if (!isDragging) {
-            sliderPosition = progress
+            val latched = seekLatch
+            if (latched != null) {
+                // Keep showing the seek target until player catches up
+                val diff = kotlin.math.abs(progress - latched)
+                if (diff < latchThreshold) {
+                    // Player caught up — resume normal tracking
+                    seekLatch = null
+                    sliderPosition = progress
+                } else {
+                    // Still catching up — stay at seek target
+                    sliderPosition = latched
+                }
+            } else {
+                sliderPosition = progress
+            }
         }
     }
 
@@ -82,7 +100,7 @@ private fun SeekBar(
         onValueChangeFinished = {
             isDragging = false
             onDraggingChanged?.invoke(false)
-            val dur = ap.duration.value
+            seekLatch = sliderPosition
             onSeekFinished(sliderPosition)
         },
         modifier = modifier,
