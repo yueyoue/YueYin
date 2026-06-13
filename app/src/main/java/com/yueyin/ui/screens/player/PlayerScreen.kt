@@ -18,7 +18,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import kotlin.math.abs
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -59,13 +58,25 @@ private fun SeekBar(
     thumbColor: Color = MaterialTheme.colorScheme.primary,
     trackColor: Color = MaterialTheme.colorScheme.primary,
 ) {
-    val scope = rememberCoroutineScope()
     var isDragging by remember { mutableStateOf(false) }
     var seekPosition by remember { mutableFloatStateOf(progress) }
     var isSeekPending by remember { mutableStateOf(false) }
     var seekTargetMs by remember { mutableLongStateOf(0L) }
 
     val displayed = if (isDragging || isSeekPending) seekPosition else progress
+
+    // Wait for ExoPlayer position to catch up after seek
+    LaunchedEffect(seekTargetMs, isSeekPending) {
+        if (!isSeekPending || seekTargetMs == 0L) return@LaunchedEffect
+        var elapsed = 0L
+        while (elapsed < 3000) {
+            kotlinx.coroutines.delay(200)
+            elapsed += 200
+            val curPos = ap.currentPosition.value
+            if (kotlin.math.abs(curPos - seekTargetMs) < 2000) break
+        }
+        isSeekPending = false
+    }
 
     Slider(
         value = displayed,
@@ -76,22 +87,9 @@ private fun SeekBar(
         onValueChangeFinished = {
             isDragging = false
             isSeekPending = true
-            onSeekFinished(seekPosition)
-            val dur = ap?.duration?.value ?: 0L
+            val dur = ap.duration.value
             seekTargetMs = (seekPosition * dur).toLong()
-            scope.launch {
-                // Wait for ExoPlayer position to catch up
-                var elapsed = 0L
-                while (isSeekPending && elapsed < 3000) {
-                    kotlinx.coroutines.delay(200)
-                    elapsed += 200
-                    val curPos = ap?.currentPosition?.value ?: 0L
-                    if (kotlin.math.abs(curPos - seekTargetMs) < 2000) {
-                        break
-                    }
-                }
-                isSeekPending = false
-            }
+            onSeekFinished(seekPosition)
         },
         modifier = modifier,
         colors = SliderDefaults.colors(thumbColor = thumbColor, activeTrackColor = trackColor),

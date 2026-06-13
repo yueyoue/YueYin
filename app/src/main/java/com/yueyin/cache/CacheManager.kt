@@ -26,37 +26,40 @@ class CacheManager(private val context: Context) {
     private var audioCache = Cache(audioCacheDir, maxCacheBytes)
 
     /** OkHttp client with disk cache for audio streams. */
-    val okHttpClient: OkHttpClient = OkHttpClient.Builder()
-        .cache(audioCache)
-        .connectTimeout(30, TimeUnit.SECONDS)
-        .readTimeout(120, TimeUnit.SECONDS)
-        .writeTimeout(60, TimeUnit.SECONDS)
-        .addNetworkInterceptor { chain ->
-            val response = chain.proceed(chain.request())
-            response.newBuilder()
-                .header("Cache-Control", "public, max-age=604800")
-                .removeHeader("Pragma")
-                .build()
-        }
-        .addInterceptor { chain ->
-            var request = chain.request()
-            if (request.cacheControl == CacheControl.FORCE_NETWORK) {
-                request = request.newBuilder()
-                    .cacheControl(CacheControl.Builder().maxStale(SEVEN_DAYS_SECONDS.toInt(), TimeUnit.SECONDS).build())
+    var okHttpClient: OkHttpClient = buildCachedClient()
+        private set
+
+    private fun buildCachedClient(): OkHttpClient {
+        return OkHttpClient.Builder()
+            .cache(audioCache)
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(120, TimeUnit.SECONDS)
+            .writeTimeout(60, TimeUnit.SECONDS)
+            .addNetworkInterceptor { chain ->
+                val response = chain.proceed(chain.request())
+                response.newBuilder()
+                    .header("Cache-Control", "public, max-age=604800")
+                    .removeHeader("Pragma")
                     .build()
             }
-            chain.proceed(request)
-        }
-        .build()
+            .addInterceptor { chain ->
+                var request = chain.request()
+                if (request.cacheControl == CacheControl.FORCE_NETWORK) {
+                    request = request.newBuilder()
+                        .cacheControl(CacheControl.Builder().maxStale(SEVEN_DAYS_SECONDS.toInt(), TimeUnit.SECONDS).build())
+                        .build()
+                }
+                chain.proceed(request)
+            }
+            .build()
+    }
 
     fun setMaxCacheSize(gb: Int) {
         val bytes = gb.toLong() * 1024L * 1024L * 1024L
         maxCacheBytes = bytes
-        audioCache.close()
+        // OkHttp Cache doesn't support resizing; create a new one
         audioCache = Cache(audioCacheDir, bytes)
-        // Note: okHttpClient already holds a reference to the old cache.
-        // For runtime cache size changes, recreate the client or accept the old reference.
-        // In practice, the user changes this rarely; a restart applies the new size.
+        okHttpClient = buildCachedClient()
     }
 
     fun getAudioCacheSize(): Long = audioCache.size()
