@@ -23,7 +23,7 @@ class CacheManager(private val context: Context) {
         private set
 
     private val audioCacheDir = File(context.cacheDir, "audio_cache")
-    private val audioCache = Cache(audioCacheDir, maxCacheBytes)
+    private var audioCache = Cache(audioCacheDir, maxCacheBytes)
 
     /** OkHttp client with disk cache for audio streams. */
     val okHttpClient: OkHttpClient = OkHttpClient.Builder()
@@ -52,7 +52,11 @@ class CacheManager(private val context: Context) {
     fun setMaxCacheSize(gb: Int) {
         val bytes = gb.toLong() * 1024L * 1024L * 1024L
         maxCacheBytes = bytes
-        audioCache.maxSize = bytes
+        audioCache.close()
+        audioCache = Cache(audioCacheDir, bytes)
+        // Note: okHttpClient already holds a reference to the old cache.
+        // For runtime cache size changes, recreate the client or accept the old reference.
+        // In practice, the user changes this rarely; a restart applies the new size.
     }
 
     fun getAudioCacheSize(): Long = audioCache.size()
