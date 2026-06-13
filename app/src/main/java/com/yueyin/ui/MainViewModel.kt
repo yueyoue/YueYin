@@ -13,6 +13,7 @@ import com.yueyin.update.UpdateInfo
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import com.yueyin.cache.CacheManager
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val app = application as YueYinApp
@@ -80,6 +81,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     // Dark mode
     val darkMode: StateFlow<Boolean> = settings.darkMode.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    // Cache settings
+    val cacheSizeGB: StateFlow<Int> = settings.cacheSizeGB.stateIn(viewModelScope, SharingStarted.Eagerly, 2)
 
     // Total listening hours
     val totalListeningHours: StateFlow<Double> = _bookProgress.map { progressMap ->
@@ -353,6 +357,22 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun setDarkMode(enabled: Boolean) {
         viewModelScope.launch { settings.saveDarkMode(enabled) }
     }
+
+    fun setCacheSize(gb: Int) {
+        viewModelScope.launch {
+            settings.saveCacheSize(gb)
+            app.cacheManager.setMaxCacheSize(gb)
+        }
+    }
+
+    fun clearCache() {
+        viewModelScope.launch {
+            app.cacheManager.clearCache()
+            _toastMessage.value = "缓存已清除"
+        }
+    }
+
+    suspend fun computeCacheSizes(): Pair<Long, Long> = app.cacheManager.computeCacheSizes()
 
     fun checkForUpdate(silent: Boolean = true) {
         viewModelScope.launch {

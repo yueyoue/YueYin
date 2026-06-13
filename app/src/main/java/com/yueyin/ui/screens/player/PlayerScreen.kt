@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import kotlin.math.abs
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -44,37 +45,53 @@ import com.yueyin.ui.theme.*
  * Only calls [onSeekFinished] when the user releases the thumb.
  * During drag, the slider tracks the finger position locally and is
  * immune to external [progress] updates — no stuttering.
+ *
+ * After seek, the slider stays at the seek position until ExoPlayer's
+ * position catches up (prevents the slider from jumping back to the
+ * old position and then forward to the new one).
  */
 @Composable
 private fun SeekBar(
     progress: Float,
     onSeekFinished: (Float) -> Unit,
+    ap: AudiobookPlayerManager,
     modifier: Modifier = Modifier,
     thumbColor: Color = MaterialTheme.colorScheme.primary,
     trackColor: Color = MaterialTheme.colorScheme.primary,
 ) {
-    // Snapshot the progress at drag start so we can compare later
-    var dragStartProgress by remember { mutableFloatStateOf(progress) }
-    var isSeeking by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    var isDragging by remember { mutableStateOf(false) }
     var seekPosition by remember { mutableFloatStateOf(progress) }
+    var isSeekPending by remember { mutableStateOf(false) }
+    var seekTargetMs by remember { mutableLongStateOf(0L) }
 
-    // Only update displayed value from outside when NOT dragging
-    val displayed = if (isSeeking) seekPosition else progress
-
-    // When a drag starts, snapshot the current progress
-    LaunchedEffect(isSeeking) {
-        if (isSeeking) dragStartProgress = progress
-    }
+    val displayed = if (isDragging || isSeekPending) seekPosition else progress
 
     Slider(
         value = displayed,
         onValueChange = { newValue ->
-            if (!isSeeking) isSeeking = true
+            isDragging = true
             seekPosition = newValue
         },
         onValueChangeFinished = {
+            isDragging = false
+            isSeekPending = true
             onSeekFinished(seekPosition)
-            isSeeking = false
+            val dur = ap?.duration?.value ?: 0L
+            seekTargetMs = (seekPosition * dur).toLong()
+            scope.launch {
+                // Wait for ExoPlayer position to catch up
+                var elapsed = 0L
+                while (isSeekPending && elapsed < 3000) {
+                    kotlinx.coroutines.delay(200)
+                    elapsed += 200
+                    val curPos = ap?.currentPosition?.value ?: 0L
+                    if (kotlin.math.abs(curPos - seekTargetMs) < 2000) {
+                        break
+                    }
+                }
+                isSeekPending = false
+            }
         },
         modifier = modifier,
         colors = SliderDefaults.colors(thumbColor = thumbColor, activeTrackColor = trackColor),
@@ -205,6 +222,7 @@ fun PlayerScreen(bookId: String, viewModel: MainViewModel, onBack: () -> Unit) {
                 SeekBar(
                     progress = prog,
                     onSeekFinished = { ap.seekToProgress(it) },
+                    ap = ap,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {

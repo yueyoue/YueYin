@@ -32,33 +32,64 @@ object UpdateChecker {
     private const val GITHUB_VERSION_URL = "https://raw.githubusercontent.com/yueyoue/YueYin/main/update/version.json"
 
     suspend fun check(currentVersionCode: Int): UpdateInfo? = withContext(Dispatchers.IO) {
-        // Try both custom server and GitHub, pick the newest version
+        // Try custom server first, then GitHub; pick the newest
         val server = tryServer(VERSION_URL, currentVersionCode)
-        val github = tryServer(GITHUB_VERSION_URL, currentVersionCode)
-        val candidates = listOfNotNull(server, github)
-        candidates.maxByOrNull { it.versionCode }
+        if (server != null) return@withContext server
+        tryServer(GITHUB_VERSION_URL, currentVersionCode)
     }
 
     private suspend fun tryServer(url: String, currentVersionCode: Int): UpdateInfo? {
         return try {
             val conn = URL(url).openConnection() as HttpURLConnection
-            conn.connectTimeout = 8000; conn.readTimeout = 8000
-            conn.setRequestProperty("User-Agent", "YueYin-Android/1.0")
+            conn.connectTimeout = 10000
+            conn.readTimeout = 10000
+            conn.setRequestProperty("User-Agent", "YueYin-Android/${currentVersionCode}")
             conn.setRequestProperty("Accept", "application/json")
+            conn.setRequestProperty("Cache-Control", "no-cache, no-store, must-revalidate")
+            conn.setRequestProperty("Pragma", "no-cache")
             conn.instanceFollowRedirects = true
+            conn.useCaches = false
             if (conn.responseCode != 200) { conn.disconnect(); return null }
-            val json = conn.inputStream.bufferedReader().readText(); conn.disconnect()
+            val json = conn.inputStream.bufferedReader().readText()
+            conn.disconnect()
             if (json.isBlank()) return null
             val v = Gson().fromJson(json, VersionFile::class.java) ?: return null
-            if (v.versionCode > currentVersionCode) UpdateInfo(v.versionCode, v.versionName, v.apkUrl, v.updateLog) else null
+            if (v.versionCode > currentVersionCode) {
+                // Ensure apkUrl is absolute
+                val apkUrl = when {
+                    v.apkUrl.startsWith("http://") || v.apkUrl.startsWith("https://") -> v.apkUrl
+                    v.apkUrl.isNotBlank() -> "https://github.com/yueyoue/YueYin/releases/download/${v.versionName}/app-release.apk"
+                    else -> "https://github.com/yueyoue/YueYin/releases/download/${v.versionName}/app-release.apk"
+                }
+                UpdateInfo(v.versionCode, v.versionName, apkUrl, v.updateLog)
+            } else null
         } catch (e: Exception) { null }
     }
 
     suspend fun downloadApk(context: Context, apkUrl: String, onProgress: (String) -> Unit): File? = withContext(Dispatchers.IO) {
         try {
             onProgress("正在下载...")
-            val conn = URL(apkUrl).openConnection() as HttpURLConnection
-            conn.connectTimeout = 30000; conn.readTimeout = 60000
+            // Follow redirects for GitHub releases
+            var conn = URL(apkUrl).openConnection() as HttpURLConnection
+            conn.connectTimeout = 30000
+            conn.readTimeout = 60000
+            conn.instanceFollowRedirects = true
+            // Handle redirect chains (GitHub uses 302 redirects)
+            var redirects = 0
+            while (conn.responseCode in 301..308 && redirects < 10) {
+                val location = conn.getHeaderField("Location") ?: break
+                conn.disconnect()
+                conn = URL(location).openConnection() as HttpURLConnection
+                conn.connectTimeout = 30000
+                conn.readTimeout = 60000
+                conn.instanceFollowRedirects = true
+                redirects++
+            }
+            if (conn.responseCode != 200) {
+                onProgress("下载失败: HTTP ${conn.responseCode}")
+                conn.disconnect()
+                return@withContext null
+            }
             val totalSize = conn.contentLength
             val file = File(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), "yueyin_update.apk")
             conn.inputStream.use { input ->

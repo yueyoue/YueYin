@@ -5,33 +5,42 @@ import coil.ImageLoader
 import coil.ImageLoaderFactory
 import coil.disk.DiskCache
 import coil.memory.MemoryCache
+import com.yueyin.cache.CacheManager
 import com.yueyin.data.repository.SettingsRepository
 import com.yueyin.data.repository.TingReaderRepository
 import com.yueyin.player.AudiobookPlayerManager
+import okhttp3.CacheControl
 import okhttp3.OkHttpClient
+import java.util.concurrent.TimeUnit
 
 class YueYinApp : Application(), ImageLoaderFactory {
     lateinit var settingsRepository: SettingsRepository
     lateinit var tingRepository: TingReaderRepository
     lateinit var audiobookPlayerManager: AudiobookPlayerManager
+    lateinit var cacheManager: CacheManager
 
     override fun onCreate() {
         super.onCreate()
+        cacheManager = CacheManager(this)
         settingsRepository = SettingsRepository(this)
         tingRepository = TingReaderRepository()
         audiobookPlayerManager = AudiobookPlayerManager(this)
-        audiobookPlayerManager.init("", "")
+        audiobookPlayerManager.init("", "", cacheManager.okHttpClient)
     }
 
     override fun newImageLoader(): ImageLoader {
         val okHttpClient = OkHttpClient.Builder()
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(120, TimeUnit.SECONDS)
+            .writeTimeout(60, TimeUnit.SECONDS)
             .addInterceptor { chain ->
                 val request = chain.request()
-                // Add auth header for Ting Reader API requests (cover proxy, etc.)
                 val authHeader = tingRepository.getAuthToken()
-                if (authHeader.length > 7 && request.url.host.let { it.contains("tthsdd.top") }) {
+                val isApiHost = request.url.host.let { it.contains("tthsdd.top") }
+                if (authHeader.length > 7 && isApiHost) {
                     val newRequest = request.newBuilder()
                         .addHeader("Authorization", authHeader)
+                        .cacheControl(CacheControl.Builder().maxStale(604800, TimeUnit.SECONDS).build())
                         .build()
                     chain.proceed(newRequest)
                 } else {
@@ -43,7 +52,12 @@ class YueYinApp : Application(), ImageLoaderFactory {
         return ImageLoader.Builder(this)
             .okHttpClient(okHttpClient)
             .memoryCache { MemoryCache.Builder(this).maxSizePercent(0.30).build() }
-            .diskCache { DiskCache.Builder().directory(cacheDir.resolve("image_cache")).maxSizeBytes(512L * 1024 * 1024).build() }
+            .diskCache {
+                DiskCache.Builder()
+                    .directory(cacheDir.resolve("image_cache"))
+                    .maxSizeBytes(cacheManager.maxCacheBytes)
+                    .build()
+            }
             .crossfade(true)
             .respectCacheHeaders(false)
             .build()

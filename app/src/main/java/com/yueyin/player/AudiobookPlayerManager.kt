@@ -72,6 +72,7 @@ class AudiobookPlayerManager(private val context: Context) {
 
     private var streamBaseUrl: String = ""
     private var authToken: String = ""
+    private var cachedOkHttpClient: OkHttpClient? = null
 
     companion object {
         const val ACTION_NEXT = "com.yueyin.AUDIOBOOK_NEXT"
@@ -83,8 +84,9 @@ class AudiobookPlayerManager(private val context: Context) {
         const val NOTIFICATION_ID = 2001
     }
 
-    fun init(baseUrl: String, token: String) {
+    fun init(baseUrl: String, token: String, cachedOkHttpClient: OkHttpClient? = null) {
         streamBaseUrl = baseUrl; authToken = token
+        this.cachedOkHttpClient = cachedOkHttpClient
         buildPlayer(); createNotificationChannel()
         mediaSessionCompat = MediaSessionCompat(context, "YueYinSession").apply {
             isActive = true
@@ -125,7 +127,8 @@ class AudiobookPlayerManager(private val context: Context) {
     }
 
     private fun buildPlayer() {
-        val okHttpClient = OkHttpClient.Builder()
+        val baseClient = cachedOkHttpClient ?: OkHttpClient.Builder().build()
+        val okHttpClient = baseClient.newBuilder()
             .addInterceptor { chain -> chain.proceed(chain.request().newBuilder().addHeader("Authorization", "Bearer $authToken").build()) }
             .build()
         player = ExoPlayer.Builder(context)
