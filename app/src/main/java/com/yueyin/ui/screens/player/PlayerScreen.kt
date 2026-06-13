@@ -96,8 +96,6 @@ private fun SeekBar(
                         val down = awaitFirstDown(requireUnconsumed = false)
                         val startX = down.position.x
                         var isDrag = false
-                        val tracker = androidx.compose.ui.input.pointer.util.VelocityTracker()
-                        tracker.addPosition(down.uptimeMillis, down.position)
                         horizontalDrag(down.id) { change ->
                             val dx = kotlin.math.abs(change.position.x - startX)
                             if (dx > touchSlop) isDrag = true
@@ -105,7 +103,6 @@ private fun SeekBar(
                                 if (!isDragging) isDragging = true
                                 val delta = change.positionChange().x / size.width.toFloat()
                                 dragPosition = (dragPosition + delta).coerceIn(0f, 1f)
-                                tracker.addPosition(change.uptimeMillis, change.position)
                                 change.consume()
                             }
                         }
