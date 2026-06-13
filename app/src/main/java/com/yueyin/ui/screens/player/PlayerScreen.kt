@@ -5,9 +5,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.forEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.drag
+import androidx.compose.foundation.gestures.horizontalDrag
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -91,36 +91,39 @@ private fun SeekBar(
             .height(barHeight)
             .pointerInput(Unit) {
                 val touchSlop = viewConfiguration.touchSlop
-                awaitEachGesture {
-                    val down = awaitFirstDown(requireUnconsumed = false)
-                    val startX = down.position.x
-                    var isDrag = false
-                    drag(down.id) { change ->
-                        val dx = kotlin.math.abs(change.position.x - startX)
-                        if (dx > touchSlop) isDrag = true
-                        if (isDrag) {
-                            if (!isDragging) isDragging = true
-                            val delta = change.positionChange().x / size.width.toFloat()
-                            dragPosition = (dragPosition + delta).coerceIn(0f, 1f)
-                            change.consume()
+                forEachGesture {
+                    awaitPointerEventScope {
+                        val down = awaitFirstDown(requireUnconsumed = false)
+                        val startX = down.position.x
+                        var isDrag = false
+                        val tracker = androidx.compose.ui.input.pointer.util.VelocityTracker()
+                        tracker.addPosition(down.uptimeMillis, down.position)
+                        horizontalDrag(down.id) { change ->
+                            val dx = kotlin.math.abs(change.position.x - startX)
+                            if (dx > touchSlop) isDrag = true
+                            if (isDrag) {
+                                if (!isDragging) isDragging = true
+                                val delta = change.positionChange().x / size.width.toFloat()
+                                dragPosition = (dragPosition + delta).coerceIn(0f, 1f)
+                                tracker.addPosition(change.uptimeMillis, change.position)
+                                change.consume()
+                            }
                         }
-                    }
-                    val totalWidth = size.width.toFloat()
-                    if (isDrag) {
-                        // Drag finished
-                        isDragging = false
-                        isSeekPending = true
-                        val dur = ap.duration.value
-                        seekTargetMs = (dragPosition * dur).toLong()
-                        onSeekFinished(dragPosition)
-                    } else {
-                        // Tap finished
-                        val target = (startX / totalWidth).coerceIn(0f, 1f)
-                        dragPosition = target
-                        isSeekPending = true
-                        val dur = ap.duration.value
-                        seekTargetMs = (target * dur).toLong()
-                        onSeekFinished(target)
+                        val totalWidth = size.width.toFloat()
+                        if (isDrag) {
+                            isDragging = false
+                            isSeekPending = true
+                            val dur = ap.duration.value
+                            seekTargetMs = (dragPosition * dur).toLong()
+                            onSeekFinished(dragPosition)
+                        } else {
+                            val target = (startX / totalWidth).coerceIn(0f, 1f)
+                            dragPosition = target
+                            isSeekPending = true
+                            val dur = ap.duration.value
+                            seekTargetMs = (target * dur).toLong()
+                            onSeekFinished(target)
+                        }
                     }
                 }
             }
