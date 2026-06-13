@@ -50,6 +50,7 @@ import com.yueyin.ui.theme.*
  * old position and then forward to the new one).
  */
 @Composable
+@Composable
 private fun SeekBar(
     progress: Float,
     onSeekFinished: (Float) -> Unit,
@@ -60,48 +61,29 @@ private fun SeekBar(
     trackColor: Color = MaterialTheme.colorScheme.primary,
 ) {
     var isDragging by remember { mutableStateOf(false) }
-    var seekPosition by remember { mutableFloatStateOf(progress) }
-    var isSeekPending by remember { mutableStateOf(false) }
-    var seekTargetMs by remember { mutableLongStateOf(0L) }
+    var sliderPosition by remember { mutableFloatStateOf(progress) }
 
-    // Sync seekPosition from progress when NOT dragging (so drag starts from current position)
-    SideEffect {
-        if (!isDragging && !isSeekPending) {
-            seekPosition = progress
+    // Update sliderPosition from progress when not dragging
+    LaunchedEffect(progress, isDragging) {
+        if (!isDragging) {
+            sliderPosition = progress
         }
-    }
-
-    val displayed = if (isDragging || isSeekPending) seekPosition else progress
-
-    // Wait for ExoPlayer position to catch up after seek
-    LaunchedEffect(seekTargetMs, isSeekPending) {
-        if (!isSeekPending || seekTargetMs == 0L) return@LaunchedEffect
-        var elapsed = 0L
-        while (elapsed < 3000) {
-            kotlinx.coroutines.delay(200)
-            elapsed += 200
-            val curPos = ap.currentPosition.value
-            if (kotlin.math.abs(curPos - seekTargetMs) < 2000) break
-        }
-        isSeekPending = false
     }
 
     Slider(
-        value = displayed,
+        value = sliderPosition,
         onValueChange = { newValue ->
             if (!isDragging) {
                 isDragging = true
                 onDraggingChanged?.invoke(true)
             }
-            seekPosition = newValue
+            sliderPosition = newValue
         },
         onValueChangeFinished = {
             isDragging = false
             onDraggingChanged?.invoke(false)
-            isSeekPending = true
             val dur = ap.duration.value
-            seekTargetMs = (seekPosition * dur).toLong()
-            onSeekFinished(seekPosition)
+            onSeekFinished(sliderPosition)
         },
         modifier = modifier,
         colors = SliderDefaults.colors(thumbColor = thumbColor, activeTrackColor = trackColor),

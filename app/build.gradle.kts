@@ -11,8 +11,8 @@ android {
         applicationId = "com.yueyin"
         minSdk = 26
         targetSdk = 34
-        versionCode = 26
-        versionName = "1.2.6"
+        versionCode = 27
+        versionName = "1.2.7"
         vectorDrawables.useSupportLibrary = true
     }
 
