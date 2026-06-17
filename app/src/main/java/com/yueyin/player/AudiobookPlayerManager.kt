@@ -162,6 +162,12 @@ class AudiobookPlayerManager(private val context: Context) {
                                     // unless playWhenReady is true.
                                     p.playWhenReady = true
                                     p.seekToNext()
+                                    // Explicitly prepare to force re-initialization after
+                                    // audio focus loss. Without this, ExoPlayer may be in a
+                                    // stuck state where playWhenReady=true but the next item
+                                    // doesn't actually start playing because audio focus was
+                                    // not properly re-requested.
+                                    p.prepare()
                                 } else {
                                     _isPlaying.value = false
                                     updateNotification()
@@ -343,11 +349,9 @@ class AudiobookPlayerManager(private val context: Context) {
             if (p.hasNextMediaItem()) {
                 p.playWhenReady = true
                 p.seekToNext()
-                // Don't call play() immediately after seekToNext —
-                // let the onMediaItemTransition retry mechanism handle it
+                p.prepare()
             }
         }
-        updateCurrentFromPlayer()
     }
     fun skipPrevious() {
         player?.let {
