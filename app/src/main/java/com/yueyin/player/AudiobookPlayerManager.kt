@@ -22,6 +22,7 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.session.MediaSession
 import com.yueyin.MainActivity
 import com.yueyin.R
 import com.yueyin.data.model.TingChapter
@@ -34,6 +35,7 @@ import okhttp3.OkHttpClient
 class AudiobookPlayerManager(private val context: Context) {
     private var player: ExoPlayer? = null
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private var mediaSession: MediaSession? = null
     private var mediaSessionCompat: MediaSessionCompat? = null
     private var broadcastReceiver: BroadcastReceiver? = null
 
@@ -88,6 +90,11 @@ class AudiobookPlayerManager(private val context: Context) {
         streamBaseUrl = baseUrl; authToken = token
         this.cachedOkHttpClient = cachedOkHttpClient
         buildPlayer(); createNotificationChannel()
+
+        // Media3 session for foreground service integration
+        mediaSession = MediaSession.Builder(context, player!!).build()
+
+        // MediaSessionCompat for notification lock screen controls
         mediaSessionCompat = MediaSessionCompat(context, "YueYinSession").apply {
             isActive = true
             setCallback(object : MediaSessionCompat.Callback() {
@@ -106,6 +113,14 @@ class AudiobookPlayerManager(private val context: Context) {
                 }
             })
         }
+
+        // Share session with foreground service
+        AudiobookPlaybackService.sharedMediaSession = mediaSession
+        AudiobookPlaybackService.sharedSessionToken = mediaSessionCompat?.sessionToken
+
+        // Start foreground service
+        startForegroundService()
+
         broadcastReceiver = object : BroadcastReceiver() {
             override fun onReceive(ctx: Context?, intent: Intent?) {
                 when (intent?.action) {
@@ -126,6 +141,17 @@ class AudiobookPlayerManager(private val context: Context) {
         scope.launch { while (true) { delay(1000); updateProgress() } }
     }
 
+    private fun startForegroundService() {
+        try {
+            val intent = Intent(context, AudiobookPlaybackService::class.java)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
+            }
+        } catch (_: Exception) { }
+    }
+
     private fun buildPlayer() {
         val baseClient = cachedOkHttpClient ?: OkHttpClient.Builder().build()
         val okHttpClient = baseClient.newBuilder()
@@ -137,100 +163,36 @@ class AudiobookPlayerManager(private val context: Context) {
             .setHandleAudioBecomingNoisy(true).setWakeMode(C.WAKE_MODE_NETWORK)
             .build().apply {
                 addListener(object : Player.Listener {
-                    override fun onIsPlayingChanged(isPlaying: Boolean) { _isPlaying.value = isPlaying; updateNotification() }
+                    override fun onIsPlayingChanged(isPlaying: Boolean) {
+                        _isPlaying.value = isPlaying
+                        updateNotification()
+                    }
+
                     override fun onPlaybackStateChanged(playbackState: Int) {
                         if (playbackState == Player.STATE_READY) {
                             _duration.value = duration
-                            if (_chapters.value.isNotEmpty() && _currentChapterIndex.value >= 0) {
-                                player?.let { p ->
-                                    if (p.playWhenReady && !p.isPlaying) {
-                                        p.play()
-                                    }
-                                }
-                            }
                             updateNotification()
                         }
-                        if (playbackState == Player.STATE_ENDED) {
-                            player?.let { p ->
-                                if (p.hasNextMediaItem()) {
-                                    // Auto-advance to next chapter.
-                                    // Force playWhenReady=true BEFORE seeking, so ExoPlayer
-                                    // knows we want playback on the next item.
-                                    // This handles the case where WeChat took audio focus,
-                                    // playWhenReady was set to false, and the chapter ended
-                                    // while backgrounded — ExoPlayer won't auto-advance
-                                    // unless playWhenReady is true.
-                                    p.playWhenReady = true
-                                    p.seekToNext()
-                                    // Explicitly prepare to force re-initialization after
-                                    // audio focus loss. Without this, ExoPlayer may be in a
-                                    // stuck state where playWhenReady=true but the next item
-                                    // doesn't actually start playing because audio focus was
-                                    // not properly re-requested.
-                                    p.prepare()
-                                } else {
-                                    _isPlaying.value = false
-                                    updateNotification()
-                                }
-                            }
-                        }
                     }
+
                     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                         _currentPosition.value = 0L
                         _progress.value = 0f
                         updateCurrentFromPlayer()
-                        if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
-                            // Ensure playback starts after auto-advance.
-                            // After audio focus loss (e.g. WeChat), the player may be in a stuck
-                            // state where playWhenReady is true but playback doesn't start.
-                            // Use a retry mechanism to force recovery.
-                            player?.let { p ->
-                                p.playWhenReady = true
-                                if (!p.isPlaying) {
-                                    p.play()
-                                }
-                                // Retry with coroutine to handle stuck state after audio focus loss
-                                scope.launch {
-                                    repeat(5) { attempt ->
-                                        if (!isActive) return@launch
-                                        kotlinx.coroutines.delay(600)
-                                        val currentPlayer = player ?: return@launch
-                                        if (currentPlayer.isPlaying) return@launch
-                                        // Player is not playing — force recovery
-                                        if (currentPlayer.playbackState == Player.STATE_READY) {
-                                            currentPlayer.playWhenReady = true
-                                            currentPlayer.play()
-                                        } else if (currentPlayer.playbackState == Player.STATE_BUFFERING) {
-                                            // Still buffering, just ensure playWhenReady is set
-                                            currentPlayer.playWhenReady = true
-                                        } else if (attempt >= 2) {
-                                            // After multiple retries, try a harder reset:
-                                            // toggle playWhenReady off then on to force ExoPlayer
-                                            // to re-evaluate its state (especially after audio focus loss)
-                                            currentPlayer.playWhenReady = false
-                                            kotlinx.coroutines.delay(200)
-                                            currentPlayer.playWhenReady = true
-                                            currentPlayer.play()
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                        // 延迟更新 duration（新 item 可能还在 buffer）
                         scope.launch {
-                            kotlinx.coroutines.delay(500)
-                            player?.let { p ->
-                                _duration.value = p.duration.coerceAtLeast(0)
-                            }
+                            delay(500)
+                            player?.let { p -> _duration.value = p.duration.coerceAtLeast(0) }
                             updateNotification()
                         }
                         _currentChapter.value?.let { onChapterAutoAdvanced?.invoke(it) }
                     }
+
                     override fun onPlayerError(error: PlaybackException) {
-                        // On error, try to skip to next and continue playing
+                        // 播放出错，尝试跳下一章
                         player?.let { p ->
                             if (p.hasNextMediaItem()) {
                                 p.seekToNext()
-                                p.play()
                             } else {
                                 onError?.invoke("播放出错: ${error.message}")
                             }
@@ -245,6 +207,10 @@ class AudiobookPlayerManager(private val context: Context) {
         if (baseUrl == currentAuthUrl && token == currentAuthToken) return
         currentAuthUrl = baseUrl; currentAuthToken = token; streamBaseUrl = baseUrl; authToken = token
         player?.release(); buildPlayer()
+        // Re-create media sessions
+        mediaSession?.release()
+        mediaSession = MediaSession.Builder(context, player!!).build()
+        AudiobookPlaybackService.sharedMediaSession = mediaSession
     }
     fun updateStreamAuth(baseUrl: String, token: String) {
         streamBaseUrl = baseUrl; authToken = token; currentAuthUrl = baseUrl; currentAuthToken = token
@@ -288,46 +254,34 @@ class AudiobookPlayerManager(private val context: Context) {
 
     fun togglePlayPause() {
         player?.let { p ->
-            if (p.isPlaying) {
-                p.pause()
-            } else if (p.playbackState == Player.STATE_ENDED) {
-                // Chapter ended while paused (e.g. audio focus lost to WeChat).
-                // The player is at the end of the current chapter — we need to advance
-                // to the next one and start playing.
-                if (p.hasNextMediaItem()) {
-                    p.playWhenReady = true
-                    p.seekToNext()
-                } else {
-                    // Last chapter ended, restart from beginning
-                    p.seekTo(0)
-                    p.playWhenReady = true
-                    p.prepare()
-                    p.play()
+            when {
+                p.isPlaying -> {
+                    p.pause()
                 }
-            } else if (p.playWhenReady && !p.isPlaying) {
-                // playWhenReady is true but not playing (stuck state after audio focus loss).
-                // Force a reset cycle to break the stuck state.
-                p.playWhenReady = false
-                scope.launch {
-                    kotlinx.coroutines.delay(200)
-                    player?.let { currentPlayer ->
-                        if (!currentPlayer.isPlaying && currentPlayer.playbackState != Player.STATE_ENDED) {
-                            currentPlayer.playWhenReady = true
-                            currentPlayer.play()
-                            _isPlaying.value = true
-                            updateNotification()
-                        }
+                p.playbackState == Player.STATE_ENDED -> {
+                    // 当前章节播完了，跳到下一章继续播放
+                    if (p.hasNextMediaItem()) {
+                        p.playWhenReady = true
+                        p.seekToNext()
+                    } else {
+                        // 最后一章，从头开始
+                        p.seekTo(0)
+                        p.playWhenReady = true
+                        p.prepare()
                     }
                 }
-            } else {
-                p.playWhenReady = true
-                p.play()
-                _isPlaying.value = true
-                updateNotification()
+                else -> {
+                    p.playWhenReady = true
+                    p.play()
+                    _isPlaying.value = true
+                    updateNotification()
+                }
             }
         }
     }
+
     fun forcePause() { try { player?.let { if (it.isPlaying) it.pause() } } catch (_: Exception) {} }
+
     fun forward15s() {
         player?.let { p ->
             val target = (p.currentPosition + 15000).coerceAtMost(p.duration.coerceAtLeast(0))
@@ -336,6 +290,7 @@ class AudiobookPlayerManager(private val context: Context) {
             updateNotification()
         }
     }
+
     fun rewind15s() {
         player?.let { p ->
             val target = (p.currentPosition - 15000).coerceAtLeast(0)
@@ -344,15 +299,16 @@ class AudiobookPlayerManager(private val context: Context) {
             updateNotification()
         }
     }
+
     fun skipNext() {
         player?.let { p ->
             if (p.hasNextMediaItem()) {
                 p.playWhenReady = true
                 p.seekToNext()
-                p.prepare()
             }
         }
     }
+
     fun skipPrevious() {
         player?.let {
             it.play()
@@ -360,6 +316,7 @@ class AudiobookPlayerManager(private val context: Context) {
         }
         updateCurrentFromPlayer()
     }
+
     fun seekToProgress(progress: Float) { player?.let { it.seekTo((it.duration * progress).toLong().coerceIn(0, it.duration)) } }
     fun setSpeed(speed: Float) { _playbackSpeed.value = speed; player?.setPlaybackSpeed(speed) }
     fun isBookLoaded(): Boolean = _currentBookId.value.isNotBlank() && _chapters.value.isNotEmpty()
@@ -454,7 +411,9 @@ class AudiobookPlayerManager(private val context: Context) {
     fun release() {
         broadcastReceiver?.let { try { context.unregisterReceiver(it) } catch (_: Exception) {} }
         mediaSessionCompat?.let { it.isActive = false; it.release() }; mediaSessionCompat = null
-        player?.release(); player = null
+        mediaSession?.run { player.release(); release() }; mediaSession = null
+        player = null
         try { (context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).cancel(NOTIFICATION_ID) } catch (_: Exception) {}
+        try { context.stopService(Intent(context, AudiobookPlaybackService::class.java)) } catch (_: Exception) {}
     }
 }
